@@ -32,6 +32,10 @@ export function Layout() {
         <a className="underline" href="https://en.openrussian.org">
           OpenRussian.org
         </a>{' '}
+        &amp;{' '}
+        <a className="underline" href="https://fr.wiktionary.org">
+          Wiktionary
+        </a>{' '}
         (CC BY-SA 4.0)
       </footer>
     </div>

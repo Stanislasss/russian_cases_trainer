@@ -126,11 +126,18 @@ export interface paths {
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    /**
+     * @description What the zones hold: endings (shown as "-ой") or whole forms ("мной").
+     * @enum {string}
+     */
+    AnswerType: 'ending' | 'whole_form'
     EndingsAttempt: {
-      /** @description The ending the player chose. */
+      animacy?: null | components['schemas']['NounAnimacy']
+      /** @description The ending (or whole form) the player chose. */
       answer: string
       case: components['schemas']['GrammaticalCase']
       correct: boolean
+      gender?: null | components['schemas']['GrammaticalGender']
       /** Format: int64 */
       lexeme_id: number
       number: components['schemas']['GrammaticalNumber']
@@ -140,10 +147,12 @@ export interface components {
       attempts: components['schemas']['EndingsAttempt'][]
     }
     EndingsBatch: {
+      /** @description Whether zones and answers are endings or whole forms. */
+      answer_kind: components['schemas']['AnswerType']
       items: components['schemas']['EndingsItem'][]
       /**
-       * @description Ending zones for the board, in paradigm order; "" is the zero ending.
-       *     Identical for every batch with the same levels and case.
+       * @description Zones for the board: endings in paradigm order ("" is the zero ending),
+       *     or whole forms. Identical for every batch with the same levels and case.
        */
       zones: string[]
     }
@@ -153,14 +162,14 @@ export interface components {
       count?: number | null
       /** @description Words are drawn from any of these levels. */
       levels: components['schemas']['Level'][]
-      /** @description Language of the translations (falls back to English). */
-      locale: components['schemas']['UiLocale']
     }
     EndingsItem: {
-      /** @description All endings that count as correct (alternative forms such as книгою). */
+      /** @description Everything that counts as correct (alternative forms such as книгою, него). */
       accepted: string[]
-      /** @description Ending of the target form; always one of the zones. */
+      animacy?: null | components['schemas']['NounAnimacy']
+      /** @description Ending (or whole form) of the target form; always one of the zones. */
       answer: string
+      gender?: null | components['schemas']['GrammaticalGender']
       /** Format: int64 */
       lexeme_id: number
       number: components['schemas']['GrammaticalNumber']
@@ -168,7 +177,11 @@ export interface components {
       stressed_form: string
       /** @description Dictionary form with stress mark (U+0301). */
       stressed_lemma: string
-      translation?: string | null
+      /**
+       * @description Meanings per language; Russian ones are definitions. Show the UI
+       *     language's, falling back to English.
+       */
+      translations: components['schemas']['Translations']
     }
     /** @enum {string} */
     ErrorCode:
@@ -184,6 +197,8 @@ export interface components {
     GrammaticalCase:
       'nominative' | 'genitive' | 'dative' | 'accusative' | 'instrumental' | 'prepositional'
     /** @enum {string} */
+    GrammaticalGender: 'masculine' | 'feminine' | 'neuter'
+    /** @enum {string} */
     GrammaticalNumber: 'singular' | 'plural'
     Health: {
       status: string
@@ -192,11 +207,24 @@ export interface components {
      * @description A difficulty level of the games.
      * @enum {string}
      */
-    Level: 'basic_nouns' | 'intermediate_nouns' | 'advanced_nouns'
+    Level:
+      | 'basic_nouns'
+      | 'intermediate_nouns'
+      | 'advanced_nouns'
+      | 'basic_adjectives'
+      | 'intermediate_adjectives'
+      | 'pronouns'
+      | 'personal_pronouns'
+      | 'surnames'
     LoginRequest: {
       email: string
       password: string
     }
+    /**
+     * @description Of the noun an adjective-like form goes with (accusative only).
+     * @enum {string}
+     */
+    NounAnimacy: 'animate' | 'inanimate'
     Problem: {
       code: components['schemas']['ErrorCode']
       /** Format: int32 */
@@ -211,8 +239,16 @@ export interface components {
       password: string
       ui_locale?: null | components['schemas']['UiLocale']
     }
+    /** @description A word's meanings per UI language; missing where the dictionaries have none. */
+    Translations: {
+      de?: string | null
+      en?: string | null
+      fr?: string | null
+      /** @description A definition in Russian rather than a translation. */
+      ru?: string | null
+    }
     /** @enum {string} */
-    UiLocale: 'en' | 'fr' | 'ru'
+    UiLocale: 'en' | 'fr' | 'ru' | 'de'
     UserDto: {
       display_name: string
       email: string
@@ -379,7 +415,7 @@ export interface operations {
           'application/json': components['schemas']['EndingsBatch']
         }
       }
-      /** @description no level selected or bad count */
+      /** @description no level, levels that can't be mixed, or bad count */
       422: {
         headers: {
           [name: string]: unknown

@@ -10,7 +10,8 @@
   "languages": {
     "en": "English",
     "fr": "Français",
-    "ru": "Русский"
+    "ru": "Русский",
+    "de": "Deutsch"
   },
   "home": {
     "heading": "Maîtrisez les six cas du russe",
@@ -63,13 +64,15 @@
     "title": "Terminaisons",
     "subtitle": "Glissez chaque mot sur la terminaison qu’il prend au cas choisi.",
     "levels": "Niveaux",
-    "comingSoon": "bientôt",
     "level": {
-      "basic_nouns": "Noms de base (300 plus fréquents, singulier)",
-      "intermediate_nouns": "Noms intermédiaires (2 000 plus fréquents, singulier et pluriel)",
-      "advanced_nouns": "Noms avancés (10 000 plus fréquents)",
-      "basic_adjectives": "Adjectifs de base",
-      "intermediate_adjectives": "Adjectifs intermédiaires"
+      "basic_nouns": "Base (300 plus fréquents, singulier)",
+      "intermediate_nouns": "Intermédiaire (2 000 plus fréquents, singulier et pluriel)",
+      "advanced_nouns": "Avancé (10 000 plus fréquents)",
+      "basic_adjectives": "Base (300 plus fréquents, singulier)",
+      "intermediate_adjectives": "Intermédiaire (2 000 plus fréquents, singulier et pluriel)",
+      "pronouns": "Possessifs et démonstratifs (мой, наш, э́тот, како́й…)",
+      "personal_pronouns": "Personnels (я, ты, он… → меня́, мне, мной)",
+      "surnames": "Noms de famille (Ивано́в, Петро́ва, Чайко́вский…)"
     },
     "case": "Cas",
     "mode": "Mode",
@@ -80,7 +83,7 @@
       "arcadeHint": "Les mots tombent de plus en plus vite. 3 vies."
     },
     "start": "Commencer",
-    "empty": "Aucun mot ne correspond. Au nominatif, seul le pluriel est demandé : ajoutez un niveau avec le pluriel.",
+    "empty": "Aucun mot ne correspond. La forme du dictionnaire n’est jamais demandée (par ex. le nominatif singulier) : essayez un autre cas ou niveau.",
     "failed": "Impossible de charger les mots. Veuillez réessayer.",
     "progress": "{{done}} / {{total}}",
     "score": "Score",
@@ -90,10 +93,6 @@
     "quit": "Quitter",
     "howTo": "Glissez un mot sur sa terminaison, ou touchez le mot puis la terminaison. Les touches 1 à 9 marchent aussi.",
     "zeroEnding": "sans terminaison",
-    "numbers": {
-      "singular": "sg.",
-      "plural": "pl."
-    },
     "feedback": {
       "wrong": "✗ {{chosen}} — c’est {{form}}",
       "missed": "⌛ Trop lent — {{form}}"
@@ -108,6 +107,22 @@
       "loginToSave": "pour suivre vos progrès.",
       "again": "Rejouer",
       "settings": "Changer les réglages"
+    },
+    "levelGroups": {
+      "nouns": "Noms",
+      "adjectives": "Adjectifs",
+      "pronouns": "Pronoms",
+      "names": "Noms propres"
+    },
+    "soloHint": "Se joue seul : on dépose les mots sur des formes entières, pas sur des terminaisons.",
+    "badges": {
+      "singular": "sg.",
+      "plural": "pl.",
+      "masculine": "m.",
+      "feminine": "f.",
+      "neuter": "n.",
+      "animate": "animé",
+      "inanimate": "inanimé"
     }
   }
 }

@@ -2,6 +2,9 @@ import type { Schemas } from '../../shared/api/client'
 
 export type Item = Schemas['EndingsItem']
 export type Mode = 'practice' | 'arcade'
+/** Whether zones are endings (-ой) or whole forms (мной). */
+export type AnswerKind = Schemas['AnswerType']
+export type GrammaticalCase = Schemas['GrammaticalCase']
 
 export const PRACTICE_ROUND = 10
 export const ARCADE_LIVES = 3
@@ -27,6 +30,9 @@ export interface Result {
 export interface Playing {
   phase: 'playing'
   mode: Mode
+  answerKind: AnswerKind
+  /** The case every word is put into. */
+  gameCase: GrammaticalCase
   zones: string[]
   queue: Item[]
   words: Word[]
@@ -41,6 +47,9 @@ export interface Playing {
 export interface Finished {
   phase: 'summary'
   mode: Mode
+  answerKind: AnswerKind
+  /** The case every word is put into. */
+  gameCase: GrammaticalCase
   results: Result[]
   score: number
 }
@@ -48,7 +57,16 @@ export interface Finished {
 export type GameState = { phase: 'setup' } | Playing | Finished
 
 export type GameAction =
-  | { type: 'start'; mode: Mode; zones: string[]; items: Item[]; now: number }
+  | {
+      type: 'start'
+      mode: Mode
+      answerKind: AnswerKind
+      /** The case every word is put into. */
+      gameCase: GrammaticalCase
+      zones: string[]
+      items: Item[]
+      now: number
+    }
   | { type: 'refill'; items: Item[] }
   | { type: 'answer'; wordId: number; ending: string; now: number }
   | { type: 'tick'; now: number }
@@ -75,6 +93,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const playing: Playing = {
         phase: 'playing',
         mode: action.mode,
+        answerKind: action.answerKind,
+        gameCase: action.gameCase,
         zones: action.zones,
         queue: action.mode === 'practice' ? action.items.slice(0, PRACTICE_ROUND) : action.items,
         words: [],
@@ -169,7 +189,14 @@ function spawn(state: Playing, now: number): Playing {
 }
 
 function finish(state: Playing): Finished {
-  return { phase: 'summary', mode: state.mode, results: state.results, score: state.score }
+  return {
+    phase: 'summary',
+    mode: state.mode,
+    answerKind: state.answerKind,
+    gameCase: state.gameCase,
+    results: state.results,
+    score: state.score,
+  }
 }
 
 /** Arcade asks for more words before the queue runs dry. */

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Button } from '../../shared/ui/Button'
-import { endingLabel } from './format'
+import { answerLabel } from './format'
 import type { Finished } from './gameReducer'
 
 interface Props {
@@ -20,6 +20,9 @@ export function SummaryScreen({ state, loggedIn, onAgain, onSettings }: Props) {
     <section className="mx-auto max-w-xl space-y-6">
       <header className="space-y-1 text-center">
         <h1 className="text-2xl font-bold">{t('game.summary.title')}</h1>
+        <p className="text-slate-500">
+          {t('game.case')}: {t(`cases.${state.gameCase}`)}
+        </p>
         {state.mode === 'arcade' && (
           <p className="text-4xl font-bold text-sky-700">
             {t('game.score')}: {state.score}
@@ -40,7 +43,9 @@ export function SummaryScreen({ state, loggedIn, onAgain, onSettings }: Props) {
                   {r.item.stressed_lemma} → <strong>{r.item.stressed_form}</strong>
                 </span>
                 <span className="text-sm text-red-600">
-                  {r.chosen === null ? t('game.summary.missed') : endingLabel(r.chosen)}
+                  {r.chosen === null
+                    ? t('game.summary.missed')
+                    : answerLabel(r.chosen, state.answerKind)}
                 </span>
               </li>
             ))}

@@ -1,11 +1,12 @@
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
+import de from './locales/de/common.json'
 import en from './locales/en/common.json'
 import fr from './locales/fr/common.json'
 import ru from './locales/ru/common.json'
 
-export const languages = ['en', 'fr', 'ru'] as const
+export const languages = ['en', 'fr', 'de', 'ru'] as const
 export type Language = (typeof languages)[number]
 
 void i18n
@@ -16,6 +17,7 @@ void i18n
       en: { common: en },
       fr: { common: fr },
       ru: { common: ru },
+      de: { common: de },
     },
     defaultNS: 'common',
     fallbackLng: 'en',

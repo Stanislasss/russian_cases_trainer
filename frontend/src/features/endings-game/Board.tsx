@@ -13,7 +13,7 @@ import {
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../shared/ui/Button'
-import { endingLabel } from './format'
+import { answerLabel, translationFor } from './format'
 import { ARCADE_LIVES, type Playing, PRACTICE_ROUND, type Word } from './gameReducer'
 
 interface Props {
@@ -81,6 +81,10 @@ export function Board({ state, onAnswer, onQuit }: Props) {
       onDragCancel={() => setDragging(null)}
     >
       <section className="mx-auto flex max-w-3xl flex-col gap-4">
+        <p className="text-center text-sm text-slate-500">
+          {t('game.case')}:{' '}
+          <strong className="text-lg text-sky-800">{t(`cases.${state.gameCase}`)}</strong>
+        </p>
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium">
             {state.mode === 'practice'
@@ -133,7 +137,7 @@ export function Board({ state, onAnswer, onQuit }: Props) {
             ) : (
               <span className="text-red-700">
                 {t('game.feedback.wrong', {
-                  chosen: endingLabel(last.chosen),
+                  chosen: answerLabel(last.chosen, state.answerKind),
                   form: last.item.stressed_form,
                 })}
               </span>
@@ -141,8 +145,14 @@ export function Board({ state, onAnswer, onQuit }: Props) {
         </p>
 
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {state.zones.map((ending, i) => (
-            <Zone key={ending} ending={ending} shortcut={i + 1} onClick={() => answer(ending)} />
+          {state.zones.map((zone, i) => (
+            <Zone
+              key={zone}
+              zone={zone}
+              label={answerLabel(zone, state.answerKind)}
+              shortcut={i + 1}
+              onClick={() => answer(zone)}
+            />
           ))}
         </div>
         <p className="text-center text-xs text-slate-500">{t('game.howTo')}</p>
@@ -156,27 +166,29 @@ export function Board({ state, onAnswer, onQuit }: Props) {
 }
 
 function Zone({
-  ending,
+  zone,
+  label,
   shortcut,
   onClick,
 }: {
-  ending: string
+  zone: string
+  label: string
   shortcut: number
   onClick: () => void
 }) {
   const { t } = useTranslation()
-  const { setNodeRef, isOver } = useDroppable({ id: zoneId(ending) })
+  const { setNodeRef, isOver } = useDroppable({ id: zoneId(zone) })
   return (
     <button
       ref={setNodeRef}
       type="button"
       onClick={onClick}
-      aria-label={ending === '' ? t('game.zeroEnding') : endingLabel(ending)}
+      aria-label={zone === '' ? t('game.zeroEnding') : label}
       className={`relative rounded-lg border-2 py-5 text-xl font-semibold transition-colors ${
         isOver ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white hover:border-slate-400'
       }`}
     >
-      {endingLabel(ending)}
+      {label}
       {shortcut <= 9 && (
         <span className="absolute top-1 left-2 text-xs font-normal text-slate-400">{shortcut}</span>
       )}
@@ -211,19 +223,26 @@ function WordCard({ word, arcade, selected, hidden, onSelect }: CardProps) {
 }
 
 function CardFace({ word, selected }: { word: Word; selected: boolean }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   return (
     <div
-      className={`cursor-grab rounded-lg border-2 bg-white px-4 py-2 text-center shadow-sm ${
+      className={`max-w-xs cursor-grab rounded-lg border-2 bg-white px-4 py-2 text-center shadow-sm ${
         selected ? 'border-sky-500 ring-2 ring-sky-200' : 'border-slate-300'
       }`}
     >
       <div className="text-2xl font-semibold">{word.item.stressed_lemma}</div>
-      <div className="text-xs text-slate-500">
-        <span className="mr-1 rounded bg-slate-100 px-1 font-medium text-slate-700">
-          {t(`game.numbers.${word.item.number}`)}
-        </span>
-        {word.item.translation}
+      <div className="flex flex-wrap items-center justify-center gap-1 text-xs text-slate-500">
+        {/* Which form is asked: gender and animacy matter for adjective-like words. */}
+        {[word.item.gender, word.item.animacy, word.item.number].map(
+          (badge) =>
+            badge && (
+              <span key={badge} className="rounded bg-slate-100 px-1 font-medium text-slate-700">
+                {t(`game.badges.${badge}`)}
+              </span>
+            ),
+        )}
+        {/* Picked at render time, so switching language mid-game updates it. */}
+        <span className="line-clamp-2">{translationFor(word.item, i18n.resolvedLanguage)}</span>
       </div>
     </div>
   )

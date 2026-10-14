@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../shared/ui/Button'
 import type { Mode } from './gameReducer'
-import { CASES, LEVEL_OPTIONS, type Settings } from './settings'
+import { CASES, LEVEL_GROUPS, type Settings, SOLO_LEVELS, toggleLevel } from './settings'
 
 interface Props {
   settings: Settings
@@ -16,13 +16,8 @@ const MODES: Mode[] = ['practice', 'arcade']
 export function SetupScreen({ settings, onChange, onStart, starting, error }: Props) {
   const { t } = useTranslation()
 
-  const toggleLevel = (level: Settings['levels'][number]) =>
-    onChange({
-      ...settings,
-      levels: settings.levels.includes(level)
-        ? settings.levels.filter((l) => l !== level)
-        : [...settings.levels, level],
-    })
+  const toggle = (level: Settings['levels'][number]) =>
+    onChange({ ...settings, levels: toggleLevel(settings.levels, level) })
 
   return (
     <form
@@ -37,19 +32,30 @@ export function SetupScreen({ settings, onChange, onStart, starting, error }: Pr
         <p className="text-slate-600">{t('game.subtitle')}</p>
       </header>
 
-      <fieldset className="space-y-2">
+      <fieldset className="space-y-3">
         <legend className="font-semibold">{t('game.levels')}</legend>
-        {LEVEL_OPTIONS.map(({ id, level }) => (
-          <label key={id} className={`flex items-center gap-2 ${level ? '' : 'text-slate-400'}`}>
-            <input
-              type="checkbox"
-              disabled={!level}
-              checked={level ? settings.levels.includes(level) : false}
-              onChange={() => level && toggleLevel(level)}
-            />
-            {t(`game.level.${id}`)}
-            {!level && <span className="text-xs">({t('game.comingSoon')})</span>}
-          </label>
+        {LEVEL_GROUPS.map((group) => (
+          // A fieldset per group, so "Intermediate" is announced as nouns or adjectives.
+          <fieldset key={group.id} className="space-y-1">
+            <legend className="text-sm font-medium text-slate-500">
+              {t(`game.levelGroups.${group.id}`)}
+            </legend>
+            {group.levels.map((level) => (
+              <label key={level} className="flex items-baseline gap-2">
+                <input
+                  type="checkbox"
+                  checked={settings.levels.includes(level)}
+                  onChange={() => toggle(level)}
+                />
+                <span>
+                  {t(`game.level.${level}`)}
+                  {SOLO_LEVELS.includes(level) && (
+                    <span className="block text-xs text-slate-500">{t('game.soloHint')}</span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </fieldset>
         ))}
       </fieldset>
 

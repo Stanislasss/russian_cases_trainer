@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use domain::lexicon::NewLexeme;
 use sqlx::{Postgres, Transaction};
 
+/// Stored in `forms.gender` / `forms.animacy` when the form doesn't vary by it.
+pub const ANY: &str = "any";
+
 /// Inserts or updates `lexemes` (matched on `source` + `source_id`) and replaces
 /// their forms and translations. Each table is written with one statement per
 /// call, using arrays + UNNEST, so callers should pass batches of a few thousand.
@@ -66,18 +69,62 @@ pub async fn upsert_lexemes(
         .collect();
     sqlx::query(
         "INSERT INTO forms
-             (lexeme_id, grammatical_case, number, variant, form, stressed_form, stem, ending, irregular)
-         SELECT * FROM UNNEST($1::int8[], $2::text[], $3::text[], $4::int2[], $5::text[],
-                              $6::text[], $7::text[], $8::text[], $9::bool[])",
+             (lexeme_id, grammatical_case, number, gender, animacy, variant,
+              form, stressed_form, stem, ending, irregular)
+         SELECT * FROM UNNEST($1::int8[], $2::text[], $3::text[], $4::text[], $5::text[],
+                              $6::int2[], $7::text[], $8::text[], $9::text[], $10::text[],
+                              $11::bool[])",
     )
     .bind(forms.iter().map(|(id, _)| *id).collect::<Vec<_>>())
-    .bind(forms.iter().map(|(_, f)| f.case.as_str()).collect::<Vec<_>>())
-    .bind(forms.iter().map(|(_, f)| f.number.as_str()).collect::<Vec<_>>())
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.slot.case.as_str())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.slot.number.as_str())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.slot.gender.map_or(ANY, |g| g.as_str()))
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.slot.animacy.map_or(ANY, |a| a.as_str()))
+            .collect::<Vec<_>>(),
+    )
     .bind(forms.iter().map(|(_, f)| f.variant).collect::<Vec<_>>())
-    .bind(forms.iter().map(|(_, f)| f.form.clone()).collect::<Vec<_>>())
-    .bind(forms.iter().map(|(_, f)| f.stressed_form.clone()).collect::<Vec<_>>())
-    .bind(forms.iter().map(|(_, f)| f.stem.clone()).collect::<Vec<_>>())
-    .bind(forms.iter().map(|(_, f)| f.ending.clone()).collect::<Vec<_>>())
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.form.clone())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.stressed_form.clone())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.stem.clone())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        forms
+            .iter()
+            .map(|(_, f)| f.ending.clone())
+            .collect::<Vec<_>>(),
+    )
     .bind(forms.iter().map(|(_, f)| f.irregular).collect::<Vec<_>>())
     .execute(&mut **tx)
     .await?;

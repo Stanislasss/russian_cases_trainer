@@ -3,11 +3,26 @@
 use crate::grammar::{Number, PartOfSpeech, string_enum};
 
 string_enum! {
-    /// A selectable difficulty level. Adjective levels are added once adjectives are imported.
+    /// A selectable difficulty level.
     LevelId, "level" {
         BasicNouns => "basic_nouns",
         IntermediateNouns => "intermediate_nouns",
         AdvancedNouns => "advanced_nouns",
+        BasicAdjectives => "basic_adjectives",
+        IntermediateAdjectives => "intermediate_adjectives",
+        Pronouns => "pronouns",
+        PersonalPronouns => "personal_pronouns",
+        Surnames => "surnames",
+    }
+}
+
+string_enum! {
+    /// What the player drops a word onto.
+    AnswerKind, "answer kind" {
+        /// The form's ending (кни́г|ой → -ой).
+        Ending => "ending",
+        /// The whole form, for words without a stem to keep (я → мной).
+        WholeForm => "whole_form",
     }
 }
 
@@ -15,9 +30,10 @@ string_enum! {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LevelSpec {
     pub pos: PartOfSpeech,
-    /// Only the `max_rank` most frequent words (frequency rank 1 = most common).
+    /// Only the `max_rank` most frequent words of that part of speech.
     pub max_rank: i32,
     pub numbers: &'static [Number],
+    pub answer: AnswerKind,
 }
 
 const SINGULAR: &[Number] = &[Number::Singular];
@@ -25,22 +41,27 @@ const BOTH_NUMBERS: &[Number] = &[Number::Singular, Number::Plural];
 
 impl LevelId {
     pub const fn spec(self) -> LevelSpec {
-        match self {
-            LevelId::BasicNouns => LevelSpec {
-                pos: PartOfSpeech::Noun,
-                max_rank: 300,
-                numbers: SINGULAR,
-            },
-            LevelId::IntermediateNouns => LevelSpec {
-                pos: PartOfSpeech::Noun,
-                max_rank: 2000,
-                numbers: BOTH_NUMBERS,
-            },
-            LevelId::AdvancedNouns => LevelSpec {
-                pos: PartOfSpeech::Noun,
-                max_rank: 10_000,
-                numbers: BOTH_NUMBERS,
-            },
+        use PartOfSpeech::*;
+        let (pos, max_rank, numbers, answer) = match self {
+            LevelId::BasicNouns => (Noun, 300, SINGULAR, AnswerKind::Ending),
+            LevelId::IntermediateNouns => (Noun, 2000, BOTH_NUMBERS, AnswerKind::Ending),
+            LevelId::AdvancedNouns => (Noun, 10_000, BOTH_NUMBERS, AnswerKind::Ending),
+            LevelId::BasicAdjectives => (Adjective, 300, SINGULAR, AnswerKind::Ending),
+            LevelId::IntermediateAdjectives => (Adjective, 2000, BOTH_NUMBERS, AnswerKind::Ending),
+            LevelId::Pronouns => (Pronoun, i32::MAX, BOTH_NUMBERS, AnswerKind::Ending),
+            LevelId::PersonalPronouns => (
+                PersonalPronoun,
+                i32::MAX,
+                BOTH_NUMBERS,
+                AnswerKind::WholeForm,
+            ),
+            LevelId::Surnames => (Surname, i32::MAX, BOTH_NUMBERS, AnswerKind::Ending),
+        };
+        LevelSpec {
+            pos,
+            max_rank,
+            numbers,
+            answer,
         }
     }
 }
@@ -50,10 +71,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn levels_get_harder() {
-        let ranks: Vec<i32> = LevelId::ALL.iter().map(|l| l.spec().max_rank).collect();
+    fn noun_levels_get_harder() {
+        let nouns = [
+            LevelId::BasicNouns,
+            LevelId::IntermediateNouns,
+            LevelId::AdvancedNouns,
+        ];
+        let ranks: Vec<i32> = nouns.iter().map(|l| l.spec().max_rank).collect();
         assert!(ranks.is_sorted(), "{ranks:?}");
         assert_eq!(LevelId::BasicNouns.spec().numbers, [Number::Singular]);
+    }
+
+    #[test]
+    fn only_personal_pronouns_are_whole_forms() {
+        for &level in LevelId::ALL {
+            let whole = level.spec().answer == AnswerKind::WholeForm;
+            assert_eq!(whole, level == LevelId::PersonalPronouns, "{level}");
+        }
     }
 
     #[test]

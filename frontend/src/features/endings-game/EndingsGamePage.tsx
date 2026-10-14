@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import type { Schemas } from '../../shared/api/client'
-import { languages } from '../../shared/i18n'
 import { useSession } from '../../shared/session/session'
 import { type AttemptPayload, fetchBatch, postAttempts } from './api'
 import { Board } from './Board'
@@ -15,7 +12,6 @@ const ARCADE_BATCH = 20
 const SEND_EVERY = 10
 
 export function EndingsGamePage() {
-  const { i18n } = useTranslation()
   const loggedIn = Boolean(useSession().data)
   const [settings, setSettings] = useState(loadSettings)
   const [state, dispatch] = useReducer(gameReducer, initialState)
@@ -25,10 +21,6 @@ export function EndingsGamePage() {
   const game = useRef(settings)
   const sent = useRef(0)
   const refilling = useRef(false)
-
-  const locale = (languages as readonly string[]).includes(i18n.resolvedLanguage ?? '')
-    ? (i18n.resolvedLanguage as Schemas['UiLocale'])
-    : 'en'
 
   const start = async () => {
     setStarting(true)
@@ -40,7 +32,6 @@ export function EndingsGamePage() {
         levels: settings.levels,
         case: settings.case,
         count,
-        locale,
       })
       if (batch.items.length === 0) {
         setSetupError('empty')
@@ -51,6 +42,8 @@ export function EndingsGamePage() {
       dispatch({
         type: 'start',
         mode: settings.mode,
+        answerKind: batch.answer_kind,
+        gameCase: settings.case,
         zones: batch.zones,
         items: batch.items,
         now: performance.now(),
@@ -82,11 +75,11 @@ export function EndingsGamePage() {
     if (!refill || refilling.current) return
     refilling.current = true
     const { levels, case: gameCase } = game.current
-    fetchBatch({ levels, case: gameCase, count: ARCADE_BATCH, locale })
+    fetchBatch({ levels, case: gameCase, count: ARCADE_BATCH })
       .then((batch) => dispatch({ type: 'refill', items: batch.items }))
       .catch(() => {}) // the game goes on with what's left
       .finally(() => (refilling.current = false))
-  }, [refill, locale])
+  }, [refill])
 
   // Save answers for logged-in players. Words that fell off the board aren't
   // answers, so they aren't recorded.
@@ -132,6 +125,8 @@ function toAttempt(result: Result, gameCase: Settings['case']): AttemptPayload[]
       lexeme_id: result.item.lexeme_id,
       case: gameCase,
       number: result.item.number,
+      gender: result.item.gender,
+      animacy: result.item.animacy,
       answer: result.chosen,
       correct: result.correct,
     },

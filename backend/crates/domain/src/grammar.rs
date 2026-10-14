@@ -9,11 +9,11 @@ pub struct ParseEnumError {
 /// is the same snake_case name, which is also what the database stores.
 /// Paths are fully qualified so other modules can use it (`use crate::grammar::string_enum`).
 macro_rules! string_enum {
-    ($(#[$meta:meta])* $name:ident, $kind:literal { $($variant:ident => $text:literal),+ $(,)? }) => {
+    ($(#[$meta:meta])* $name:ident, $kind:literal { $($(#[$vmeta:meta])* $variant:ident => $text:literal),+ $(,)? }) => {
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         pub enum $name {
-            $(#[serde(rename = $text)] $variant),+
+            $($(#[$vmeta])* #[serde(rename = $text)] $variant),+
         }
 
         impl $name {
@@ -84,7 +84,11 @@ string_enum! {
     PartOfSpeech, "part of speech" {
         Noun => "noun",
         Adjective => "adjective",
+        /// Declines like an adjective: мой, э́тот, како́й, кото́рый, …
         Pronoun => "pronoun",
+        /// я, ты, он, …: whole forms change (я → меня́), so there's no ending to split off.
+        PersonalPronoun => "personal_pronoun",
+        Surname => "surname",
     }
 }
 
@@ -94,6 +98,7 @@ string_enum! {
         En => "en",
         Fr => "fr",
         Ru => "ru",
+        De => "de",
     }
 }
 

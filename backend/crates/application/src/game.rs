@@ -1,12 +1,12 @@
 //! The endings game: a word in its dictionary form is dropped onto the ending
-//! it takes in the target case.
+//! (or, for personal pronouns, the whole form) it takes in the target case.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use domain::game::{LevelId, LevelSpec};
-use domain::grammar::{Case, Locale, Number};
-use domain::inflection::noun_endings;
+use domain::game::{AnswerKind, LevelId, LevelSpec};
+use domain::grammar::{Animacy, Case, Gender, Locale, Number, PartOfSpeech};
+use domain::inflection::{adjective_endings, noun_endings};
 use domain::user::UserId;
 
 use crate::ports::{BoxError, RepoError};
@@ -14,35 +14,47 @@ use crate::ports::{BoxError, RepoError};
 pub const EXERCISE_TYPE: &str = "endings";
 pub const MAX_BATCH: usize = 50;
 pub const MAX_ATTEMPTS: usize = 100;
+/// Answers are endings or short pronoun forms (собо́ю); anything longer isn't real.
 const MAX_ANSWER_CHARS: usize = 10;
-/// An ending gets its own zone only if at least this share of the pool uses it;
-/// words with rarer endings are left out so the board stays readable.
+/// An answer gets its own zone only if at least this share of the pool uses it;
+/// words with rarer answers are left out so the board stays readable.
 pub const MIN_ZONE_SHARE: f64 = 0.01;
+/// At most this many zones, the most common answers; more don't fit on a phone.
+pub const MAX_ZONES: usize = 12;
 
-/// Which forms a game draws from: any selected level, in one case.
+/// Which forms a game draws from: any selected level, in one case. The form equal
+/// to the dictionary form shown (книга, новый, я) is never asked: it gives itself away.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EndingsFilter {
+pub struct GameFilter {
     pub levels: Vec<LevelSpec>,
     pub case: Case,
+    /// Shared by all levels of a game.
+    pub answer: AnswerKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameItem {
     pub lexeme_id: i64,
     pub stressed_lemma: String,
-    /// In the requested locale, else English, else none.
-    pub translation: Option<String>,
+    /// Up to three meanings per language (joined with "; "); the client shows
+    /// the one for its UI language. For Russian these are definitions.
+    pub translations: Vec<(Locale, String)>,
     pub number: Number,
-    /// The ending of the main form.
+    /// For adjective-like words: the gender (singular) and, in the accusative,
+    /// the animacy of the noun the form agrees with.
+    pub gender: Option<Gender>,
+    pub animacy: Option<Animacy>,
+    /// The ending (or whole form) of the main form.
     pub answer: String,
-    /// `answer` plus the endings of alternative forms (книгой / книгою).
+    /// `answer` plus those of alternative forms (книгой / книгою, его / него).
     pub accepted: Vec<String>,
     pub stressed_form: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Batch {
-    /// The ending zones on the board; the same for every batch of a game.
+    pub answer: AnswerKind,
+    /// The zones on the board; the same for every batch of a game.
     pub zones: Vec<String>,
     pub items: Vec<GameItem>,
 }
@@ -52,26 +64,30 @@ pub struct Attempt {
     pub lexeme_id: i64,
     pub case: Case,
     pub number: Number,
+    pub gender: Option<Gender>,
+    pub animacy: Option<Animacy>,
     pub answer: String,
     pub correct: bool,
 }
 
 #[async_trait]
 pub trait ExerciseRepository: Send + Sync {
-    /// Endings used by at least `min_share` of the forms matching `filter`.
-    async fn ending_zones(
+    /// The `max_zones` most common answers among the forms matching `filter`,
+    /// leaving out any used by less than `min_share` of them. Ordered by the
+    /// frequency rank of the words that use them (я before ты before он).
+    async fn zones(
         &self,
-        filter: &EndingsFilter,
+        filter: &GameFilter,
         min_share: f64,
+        max_zones: usize,
     ) -> Result<Vec<String>, RepoError>;
 
-    /// Up to `count` random forms matching `filter` whose ending is one of `zones`.
-    async fn random_ending_items(
+    /// Up to `count` random forms matching `filter` whose answer is one of `zones`.
+    async fn random_items(
         &self,
-        filter: &EndingsFilter,
+        filter: &GameFilter,
         zones: &[String],
         count: usize,
-        locale: Locale,
     ) -> Result<Vec<GameItem>, RepoError>;
 }
 
@@ -89,6 +105,9 @@ pub trait AttemptRepository: Send + Sync {
 pub enum GameError {
     #[error("select at least one level")]
     NoLevels,
+    /// Personal pronouns (whole forms) can't share a board with ending levels.
+    #[error("these levels can't be played together")]
+    MixedLevels,
     #[error("ask for between 1 and {MAX_BATCH} words")]
     InvalidCount,
     /// Too few/many attempts, or one refers to an unknown word.
@@ -130,41 +149,45 @@ impl EndingsGame {
         levels: &[LevelId],
         case: Case,
         count: usize,
-        locale: Locale,
     ) -> Result<Batch, GameError> {
-        if levels.is_empty() {
-            return Err(GameError::NoLevels);
-        }
         if !(1..=MAX_BATCH).contains(&count) {
             return Err(GameError::InvalidCount);
         }
         let mut levels = levels.to_vec();
         levels.sort_by_key(|l| l.as_str());
         levels.dedup();
-        let filter = EndingsFilter {
-            levels: levels
-                .iter()
-                .filter_map(|l| playable_spec(l.spec(), case))
-                .collect(),
-            case,
+        let specs: Vec<LevelSpec> = levels.iter().map(|l| l.spec()).collect();
+        let answer = match specs.first() {
+            None => return Err(GameError::NoLevels),
+            Some(first) if specs.iter().any(|s| s.answer != first.answer) => {
+                return Err(GameError::MixedLevels);
+            }
+            Some(first) => first.answer,
         };
-        if filter.levels.is_empty() {
-            return Ok(Batch {
-                zones: Vec::new(),
-                items: Vec::new(),
-            });
-        }
+        let filter = GameFilter {
+            levels: specs,
+            case,
+            answer,
+        };
 
-        let mut zones = self.exercises.ending_zones(&filter, MIN_ZONE_SHARE).await?;
-        sort_like_the_paradigm(&mut zones, case);
+        let mut zones = self
+            .exercises
+            .zones(&filter, MIN_ZONE_SHARE, MAX_ZONES)
+            .await?;
+        if answer == AnswerKind::Ending {
+            let nouns_first = filter.levels.iter().any(|l| l.pos == PartOfSpeech::Noun);
+            sort_like_the_paradigm(&mut zones, case, nouns_first);
+        }
         let items = if zones.is_empty() {
             Vec::new()
         } else {
-            self.exercises
-                .random_ending_items(&filter, &zones, count, locale)
-                .await?
+            self.exercises.random_items(&filter, &zones, count).await?
         };
-        Ok(Batch { zones, items })
+        Ok(Batch {
+            answer,
+            zones,
+            items,
+        })
     }
 
     pub async fn record_attempts(
@@ -172,7 +195,6 @@ impl EndingsGame {
         user: UserId,
         attempts: &[Attempt],
     ) -> Result<(), GameError> {
-        // Answers are endings, so a few letters; anything longer isn't a real answer.
         let sane = |a: &Attempt| a.answer.chars().count() <= MAX_ANSWER_CHARS;
         if !(1..=MAX_ATTEMPTS).contains(&attempts.len()) || !attempts.iter().all(sane) {
             return Err(GameError::InvalidAttempts);
@@ -181,26 +203,29 @@ impl EndingsGame {
     }
 }
 
-/// The nominative singular *is* the dictionary form shown to the player, so it
-/// would give the answer away: in the nominative only plurals are asked.
-fn playable_spec(mut spec: LevelSpec, case: Case) -> Option<LevelSpec> {
-    const PLURAL: &[Number] = &[Number::Plural];
-    if case == Case::Nominative {
-        if !spec.numbers.contains(&Number::Plural) {
-            return None;
-        }
-        spec.numbers = PLURAL;
-    }
-    Some(spec)
-}
-
-/// Singular endings first, then plural, in the order grammar tables list them.
-fn sort_like_the_paradigm(zones: &mut [String], case: Case) {
-    let order: Vec<&str> = noun_endings(case, Number::Singular)
-        .iter()
-        .chain(noun_endings(case, Number::Plural))
-        .copied()
+/// The order grammar tables list endings in: nouns singular then plural, and
+/// adjectives masculine, feminine, neuter, plural. Noun order comes first when a
+/// noun level is played (-ей is then a genitive plural, not a feminine ending).
+/// Unknown endings go last.
+fn sort_like_the_paradigm(zones: &mut [String], case: Case, nouns_first: bool) {
+    let nouns: Vec<&str> = [Number::Singular, Number::Plural]
+        .into_iter()
+        .flat_map(|number| noun_endings(case, number).iter().copied())
         .collect();
+    let adjectives: Vec<&str> = [
+        (Number::Singular, Some(Gender::Masculine)),
+        (Number::Singular, Some(Gender::Feminine)),
+        (Number::Singular, Some(Gender::Neuter)),
+        (Number::Plural, None),
+    ]
+    .into_iter()
+    .flat_map(|(number, gender)| adjective_endings(case, number, gender).iter().copied())
+    .collect();
+    let order = if nouns_first {
+        [nouns, adjectives].concat()
+    } else {
+        [adjectives, nouns].concat()
+    };
     zones.sort_by_key(|z| order.iter().position(|o| o == z).unwrap_or(usize::MAX));
 }
 
@@ -215,33 +240,35 @@ mod tests {
     #[derive(Default)]
     struct FakeExercises {
         zones: Vec<String>,
-        seen_filter: Mutex<Option<EndingsFilter>>,
+        seen_filter: Mutex<Option<GameFilter>>,
     }
 
     #[async_trait]
     impl ExerciseRepository for FakeExercises {
-        async fn ending_zones(
+        async fn zones(
             &self,
-            filter: &EndingsFilter,
+            filter: &GameFilter,
             _min_share: f64,
+            _max_zones: usize,
         ) -> Result<Vec<String>, RepoError> {
             *self.seen_filter.lock().unwrap() = Some(filter.clone());
             Ok(self.zones.clone())
         }
 
-        async fn random_ending_items(
+        async fn random_items(
             &self,
-            _filter: &EndingsFilter,
+            _filter: &GameFilter,
             zones: &[String],
             count: usize,
-            _locale: Locale,
         ) -> Result<Vec<GameItem>, RepoError> {
             Ok((0..count)
                 .map(|i| GameItem {
                     lexeme_id: i as i64,
                     stressed_lemma: "кни\u{301}га".into(),
-                    translation: Some("book".into()),
+                    translations: vec![(Locale::En, "book".into())],
                     number: Number::Singular,
+                    gender: None,
+                    animacy: None,
                     answer: zones[0].clone(),
                     accepted: vec![zones[0].clone()],
                     stressed_form: "кни\u{301}гой".into(),
@@ -288,11 +315,64 @@ mod tests {
     async fn zones_follow_the_paradigm_order() {
         let (game, _, _) = game(&["ами", "ой", "ом", "ью", "ей"]);
         let batch = game
-            .new_batch(&[LevelId::BasicNouns], Case::Instrumental, 5, Locale::En)
+            .new_batch(&[LevelId::BasicNouns], Case::Instrumental, 5)
             .await
             .unwrap();
+        assert_eq!(batch.answer, AnswerKind::Ending);
         assert_eq!(batch.zones, ["ом", "ой", "ей", "ью", "ами"]);
         assert_eq!(batch.items.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn adjective_zones_follow_noun_ones() {
+        let (game, _, _) = game(&["ых", "ого", "а", "ой"]);
+        let batch = game
+            .new_batch(
+                &[LevelId::BasicNouns, LevelId::BasicAdjectives],
+                Case::Genitive,
+                5,
+            )
+            .await
+            .unwrap();
+        assert_eq!(batch.zones, ["а", "ого", "ой", "ых"]);
+    }
+
+    #[tokio::test]
+    async fn adjective_games_use_the_adjective_order() {
+        // -ей is a noun genitive plural ending, but here the feminine one.
+        let (game, _, _) = game(&["ей", "ого", "его", "ой"]);
+        let batch = game
+            .new_batch(&[LevelId::BasicAdjectives], Case::Genitive, 5)
+            .await
+            .unwrap();
+        assert_eq!(batch.zones, ["ого", "его", "ой", "ей"]);
+    }
+
+    #[tokio::test]
+    async fn whole_form_zones_keep_the_repository_order() {
+        let (game, exercises, _) = game(&["меня", "тебя", "его"]);
+        let batch = game
+            .new_batch(&[LevelId::PersonalPronouns], Case::Genitive, 5)
+            .await
+            .unwrap();
+        assert_eq!(batch.answer, AnswerKind::WholeForm);
+        assert_eq!(batch.zones, ["меня", "тебя", "его"]);
+        let filter = exercises.seen_filter.lock().unwrap().clone().unwrap();
+        assert_eq!(filter.answer, AnswerKind::WholeForm);
+    }
+
+    #[tokio::test]
+    async fn whole_form_and_ending_levels_dont_mix() {
+        let (game, _, _) = game(&["ой"]);
+        assert!(matches!(
+            game.new_batch(
+                &[LevelId::PersonalPronouns, LevelId::BasicNouns],
+                Case::Genitive,
+                5
+            )
+            .await,
+            Err(GameError::MixedLevels)
+        ));
     }
 
     #[tokio::test]
@@ -306,7 +386,6 @@ mod tests {
             ],
             Case::Genitive,
             3,
-            Locale::Fr,
         )
         .await
         .unwrap();
@@ -317,37 +396,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn nominative_only_asks_plurals() {
-        let (game, exercises, _) = game(&["ы"]);
-
-        let basic_only = game
-            .new_batch(&[LevelId::BasicNouns], Case::Nominative, 5, Locale::En)
-            .await
-            .unwrap();
-        assert!(basic_only.zones.is_empty() && basic_only.items.is_empty());
-        assert!(
-            exercises.seen_filter.lock().unwrap().is_none(),
-            "no query needed"
-        );
-
-        game.new_batch(
-            &[LevelId::BasicNouns, LevelId::IntermediateNouns],
-            Case::Nominative,
-            5,
-            Locale::En,
-        )
-        .await
-        .unwrap();
-        let filter = exercises.seen_filter.lock().unwrap().clone().unwrap();
-        assert_eq!(filter.levels.len(), 1);
-        assert_eq!(filter.levels[0].numbers, [Number::Plural]);
-    }
-
-    #[tokio::test]
     async fn empty_pool_gives_an_empty_batch() {
         let (game, _, _) = game(&[]);
         let batch = game
-            .new_batch(&[LevelId::BasicNouns], Case::Dative, 10, Locale::En)
+            .new_batch(&[LevelId::BasicNouns], Case::Dative, 10)
             .await
             .unwrap();
         assert!(batch.zones.is_empty() && batch.items.is_empty());
@@ -357,12 +409,12 @@ mod tests {
     async fn batch_requests_are_validated() {
         let (game, _, _) = game(&["ой"]);
         assert!(matches!(
-            game.new_batch(&[], Case::Dative, 10, Locale::En).await,
+            game.new_batch(&[], Case::Dative, 10).await,
             Err(GameError::NoLevels)
         ));
         for count in [0, MAX_BATCH + 1] {
             assert!(matches!(
-                game.new_batch(&[LevelId::BasicNouns], Case::Dative, count, Locale::En)
+                game.new_batch(&[LevelId::BasicNouns], Case::Dative, count)
                     .await,
                 Err(GameError::InvalidCount)
             ));
@@ -377,6 +429,8 @@ mod tests {
             lexeme_id: 7,
             case: Case::Instrumental,
             number: Number::Singular,
+            gender: Some(Gender::Feminine),
+            animacy: None,
             answer: "ой".into(),
             correct: true,
         };

@@ -1,8 +1,8 @@
 //! API mirrors of domain enums. The domain stays free of OpenAPI concerns; these
 //! add `ToSchema` and convert both ways. Wire names are the same snake_case strings.
 
-use domain::game::LevelId;
-use domain::grammar::{Case, Locale, Number};
+use domain::game::{AnswerKind, LevelId};
+use domain::grammar::{Animacy, Case, Gender, Locale, Number};
 
 macro_rules! mirror_enum {
     ($(#[$meta:meta])* $name:ident <=> $domain:ident { $($variant:ident),+ $(,)? }) => {
@@ -35,7 +35,7 @@ macro_rules! mirror_enum {
 }
 
 mirror_enum! {
-    UiLocale <=> Locale { En, Fr, Ru }
+    UiLocale <=> Locale { En, Fr, Ru, De }
 }
 
 mirror_enum! {
@@ -49,8 +49,26 @@ mirror_enum! {
 }
 
 mirror_enum! {
+    GrammaticalGender <=> Gender { Masculine, Feminine, Neuter }
+}
+
+mirror_enum! {
+    /// Of the noun an adjective-like form goes with (accusative only).
+    NounAnimacy <=> Animacy { Animate, Inanimate }
+}
+
+mirror_enum! {
+    /// What the zones hold: endings (shown as "-ой") or whole forms ("мной").
+    AnswerType <=> AnswerKind { Ending, WholeForm }
+}
+
+mirror_enum! {
     /// A difficulty level of the games.
-    Level <=> LevelId { BasicNouns, IntermediateNouns, AdvancedNouns }
+    Level <=> LevelId {
+        BasicNouns, IntermediateNouns, AdvancedNouns,
+        BasicAdjectives, IntermediateAdjectives,
+        Pronouns, PersonalPronouns, Surnames,
+    }
 }
 
 #[cfg(test)]

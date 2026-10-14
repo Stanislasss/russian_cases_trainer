@@ -11,8 +11,10 @@ infrastructure.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

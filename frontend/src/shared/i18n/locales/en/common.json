@@ -10,7 +10,8 @@
   "languages": {
     "en": "English",
     "fr": "Français",
-    "ru": "Русский"
+    "ru": "Русский",
+    "de": "Deutsch"
   },
   "home": {
     "heading": "Master the six Russian cases",
@@ -63,13 +64,15 @@
     "title": "Endings",
     "subtitle": "Drag each word onto the ending it takes in the chosen case.",
     "levels": "Levels",
-    "comingSoon": "coming soon",
     "level": {
-      "basic_nouns": "Basic nouns (300 most common, singular)",
-      "intermediate_nouns": "Intermediate nouns (2,000 most common, singular & plural)",
-      "advanced_nouns": "Advanced nouns (10,000 most common)",
-      "basic_adjectives": "Basic adjectives",
-      "intermediate_adjectives": "Intermediate adjectives"
+      "basic_nouns": "Basic (300 most common, singular)",
+      "intermediate_nouns": "Intermediate (2,000 most common, singular & plural)",
+      "advanced_nouns": "Advanced (10,000 most common)",
+      "basic_adjectives": "Basic (300 most common, singular)",
+      "intermediate_adjectives": "Intermediate (2,000 most common, singular & plural)",
+      "pronouns": "Possessive & demonstrative (мой, наш, э́тот, како́й…)",
+      "personal_pronouns": "Personal (я, ты, он… → меня́, мне, мной)",
+      "surnames": "Surnames (Ивано́в, Петро́ва, Чайко́вский…)"
     },
     "case": "Case",
     "mode": "Mode",
@@ -80,7 +83,7 @@
       "arcadeHint": "Words fall faster and faster. 3 lives."
     },
     "start": "Start",
-    "empty": "No words match these settings. In the nominative only plurals are asked, so add a level with plurals.",
+    "empty": "No words match these settings. The dictionary form itself is never asked (e.g. the nominative singular), so try another case or level.",
     "failed": "Couldn't load words. Please try again.",
     "progress": "{{done}} / {{total}}",
     "score": "Score",
@@ -90,10 +93,6 @@
     "quit": "Quit",
     "howTo": "Drag a word onto its ending, or tap the word and then the ending. Keys 1–9 work too.",
     "zeroEnding": "no ending",
-    "numbers": {
-      "singular": "sg.",
-      "plural": "pl."
-    },
     "feedback": {
       "wrong": "✗ {{chosen}} — it is {{form}}",
       "missed": "⌛ Too slow — {{form}}"
@@ -108,6 +107,22 @@
       "loginToSave": "to keep track of your progress.",
       "again": "Play again",
       "settings": "Change settings"
+    },
+    "levelGroups": {
+      "nouns": "Nouns",
+      "adjectives": "Adjectives",
+      "pronouns": "Pronouns",
+      "names": "Names"
+    },
+    "soloHint": "Played on its own: you drop words onto whole forms instead of endings.",
+    "badges": {
+      "singular": "sg.",
+      "plural": "pl.",
+      "masculine": "m.",
+      "feminine": "f.",
+      "neuter": "n.",
+      "animate": "animate",
+      "inanimate": "inanimate"
     }
   }
 }

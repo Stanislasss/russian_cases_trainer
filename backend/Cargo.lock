@@ -1073,6 +1073,8 @@ dependencies = [
  "domain",
  "infrastructure",
  "reqwest",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",

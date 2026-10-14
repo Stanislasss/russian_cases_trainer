@@ -16,8 +16,10 @@ function item(n: number, answer = 'ой', accepted = [answer]): Item {
   return {
     lexeme_id: n,
     stressed_lemma: `слово${n}`,
-    translation: null,
+    translations: {},
     number: 'singular',
+    gender: null,
+    animacy: null,
     answer,
     accepted,
     stressed_form: `слово${n}${answer}`,
@@ -38,6 +40,8 @@ function playing(state: GameState): Playing {
 const start = (mode: 'practice' | 'arcade', list: Item[]): GameAction => ({
   type: 'start',
   mode,
+  answerKind: 'ending',
+  gameCase: 'instrumental',
   zones: ['ом', 'ой'],
   items: list,
   now: 0,

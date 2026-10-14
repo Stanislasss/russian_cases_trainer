@@ -5,12 +5,15 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::{Json, Router, routing::post};
 use domain::game::LevelId;
+use domain::grammar::Locale;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::AppState;
 use crate::auth::CurrentUser;
-use crate::dto::{GrammaticalCase, GrammaticalNumber, Level, UiLocale};
+use crate::dto::{
+    AnswerType, GrammaticalCase, GrammaticalGender, GrammaticalNumber, Level, NounAnimacy,
+};
 use crate::error::{AppError, Problem};
 
 pub fn routes() -> Router<AppState> {
@@ -26,14 +29,14 @@ pub struct EndingsBatchRequest {
     case: GrammaticalCase,
     /// 1–50, default 10.
     count: Option<usize>,
-    /// Language of the translations (falls back to English).
-    locale: UiLocale,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct EndingsBatch {
-    /// Ending zones for the board, in paradigm order; "" is the zero ending.
-    /// Identical for every batch with the same levels and case.
+    /// Whether zones and answers are endings or whole forms.
+    answer_kind: AnswerType,
+    /// Zones for the board: endings in paradigm order ("" is the zero ending),
+    /// or whole forms. Identical for every batch with the same levels and case.
     zones: Vec<String>,
     items: Vec<EndingsItem>,
 }
@@ -43,14 +46,46 @@ pub struct EndingsItem {
     lexeme_id: i64,
     /// Dictionary form with stress mark (U+0301).
     stressed_lemma: String,
-    translation: Option<String>,
+    /// Meanings per language; Russian ones are definitions. Show the UI
+    /// language's, falling back to English.
+    translations: Translations,
     number: GrammaticalNumber,
-    /// Ending of the target form; always one of the zones.
+    /// For adjectives, pronouns and surnames: the gender of the form (singular).
+    gender: Option<GrammaticalGender>,
+    /// For adjective-like words in the accusative: animacy of the noun they go with.
+    animacy: Option<NounAnimacy>,
+    /// Ending (or whole form) of the target form; always one of the zones.
     answer: String,
-    /// All endings that count as correct (alternative forms such as книгою).
+    /// Everything that counts as correct (alternative forms such as книгою, него).
     accepted: Vec<String>,
     /// The full target form with stress mark, for feedback.
     stressed_form: String,
+}
+
+/// A word's meanings per UI language; missing where the dictionaries have none.
+#[derive(Debug, Default, Serialize, ToSchema)]
+pub struct Translations {
+    en: Option<String>,
+    fr: Option<String>,
+    de: Option<String>,
+    /// A definition in Russian rather than a translation.
+    ru: Option<String>,
+}
+
+impl From<Vec<(Locale, String)>> for Translations {
+    fn from(texts: Vec<(Locale, String)>) -> Self {
+        let mut translations = Translations::default();
+        for (locale, text) in texts {
+            let slot = match locale {
+                Locale::En => &mut translations.en,
+                Locale::Fr => &mut translations.fr,
+                Locale::De => &mut translations.de,
+                Locale::Ru => &mut translations.ru,
+            };
+            *slot = Some(text);
+        }
+        translations
+    }
 }
 
 impl From<GameItem> for EndingsItem {
@@ -58,8 +93,10 @@ impl From<GameItem> for EndingsItem {
         EndingsItem {
             lexeme_id: item.lexeme_id,
             stressed_lemma: item.stressed_lemma,
-            translation: item.translation,
+            translations: Translations::from(item.translations),
             number: item.number.into(),
+            gender: item.gender.map(Into::into),
+            animacy: item.animacy.map(Into::into),
             answer: item.answer,
             accepted: item.accepted,
             stressed_form: item.stressed_form,
@@ -70,6 +107,7 @@ impl From<GameItem> for EndingsItem {
 impl From<Batch> for EndingsBatch {
     fn from(batch: Batch) -> Self {
         EndingsBatch {
+            answer_kind: batch.answer.into(),
             zones: batch.zones,
             items: batch.items.into_iter().map(Into::into).collect(),
         }
@@ -82,7 +120,7 @@ impl From<Batch> for EndingsBatch {
     request_body = EndingsBatchRequest,
     responses(
         (status = 200, body = EndingsBatch),
-        (status = 422, description = "no level selected or bad count", body = Problem),
+        (status = 422, description = "no level, levels that can't be mixed, or bad count", body = Problem),
     )
 )]
 async fn endings_batch(
@@ -92,12 +130,7 @@ async fn endings_batch(
     let levels: Vec<LevelId> = req.levels.into_iter().map(Into::into).collect();
     let batch = state
         .endings
-        .new_batch(
-            &levels,
-            req.case.into(),
-            req.count.unwrap_or(10),
-            req.locale.into(),
-        )
+        .new_batch(&levels, req.case.into(), req.count.unwrap_or(10))
         .await?;
     Ok(Json(batch.into()))
 }
@@ -113,7 +146,9 @@ pub struct EndingsAttempt {
     lexeme_id: i64,
     case: GrammaticalCase,
     number: GrammaticalNumber,
-    /// The ending the player chose.
+    gender: Option<GrammaticalGender>,
+    animacy: Option<NounAnimacy>,
+    /// The ending (or whole form) the player chose.
     answer: String,
     correct: bool,
 }
@@ -140,6 +175,8 @@ async fn endings_attempts(
             lexeme_id: a.lexeme_id,
             case: a.case.into(),
             number: a.number.into(),
+            gender: a.gender.map(Into::into),
+            animacy: a.animacy.map(Into::into),
             answer: a.answer,
             correct: a.correct,
         })

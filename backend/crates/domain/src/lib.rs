@@ -5,4 +5,5 @@ pub mod grammar;
 pub mod inflection;
 pub mod lexicon;
 pub mod stress;
+pub mod surname;
 pub mod user;

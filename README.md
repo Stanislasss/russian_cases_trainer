@@ -45,7 +45,9 @@ Frontend checks run natively from `frontend/`: `npm run typecheck`, `npm run lin
 
 ## Data attribution
 
-Word data comes from [OpenRussian.org](https://en.openrussian.org), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- Nouns, adjectives, pronouns and their English and German translations come from [OpenRussian.org](https://en.openrussian.org), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- French translations and Russian definitions come from the [French](https://fr.wiktionary.org) and [Russian](https://ru.wiktionary.org) Wiktionary via [kaikki.org](https://kaikki.org), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). `just import` downloads them (176 MB and 1.7 GB, cached); if a download fails, that language falls back to English.
+- Personal pronouns, наш/ваш and the surname list are written by hand in `backend/crates/importer/src/curated.rs`; surnames are declined by rule (`domain::surname`).
 
 ## License
 
