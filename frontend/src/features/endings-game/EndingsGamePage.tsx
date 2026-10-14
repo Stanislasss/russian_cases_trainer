@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useSession } from '../../shared/session/session'
 import { useSpeech } from '../../shared/speech/useSpeech'
 import { type AttemptPayload, fetchBatch, postAttempts } from './api'
@@ -11,7 +12,7 @@ import {
   type Result,
   type Word,
 } from './gameReducer'
-import { loadSettings, saveSettings, type Settings } from './settings'
+import { CASES, loadSettings, saveSettings, type Settings } from './settings'
 import { SetupScreen } from './SetupScreen'
 import { SummaryScreen } from './SummaryScreen'
 
@@ -23,7 +24,13 @@ const SEND_EVERY = 10
 
 export function EndingsGamePage() {
   const loggedIn = Boolean(useSession().data)
-  const [settings, setSettings] = useState(loadSettings)
+  // A rules page can link here with ?case=… to practise that case.
+  const [params] = useSearchParams()
+  const [settings, setSettings] = useState(() => {
+    const saved = loadSettings()
+    const linked = CASES.find((c) => c === params.get('case'))
+    return linked ? { ...saved, case: linked } : saved
+  })
   const [state, dispatch] = useReducer(gameReducer, initialState)
   const speech = useSpeech()
   const [starting, setStarting] = useState(false)
@@ -65,6 +72,8 @@ export function EndingsGamePage() {
       setStarting(false)
     }
   }
+
+  const onContinue = useCallback(() => dispatch({ type: 'continue', now: performance.now() }), [])
 
   const onAnswer = useCallback(
     (wordId: number, ending: string) =>
@@ -148,6 +157,7 @@ export function EndingsGamePage() {
           state={state}
           onAnswer={onAnswer}
           onQuit={() => dispatch({ type: 'quit' })}
+          onContinue={onContinue}
           speech={speech}
         />
       )
@@ -158,6 +168,7 @@ export function EndingsGamePage() {
           loggedIn={loggedIn}
           onAgain={start}
           onSettings={() => dispatch({ type: 'reset' })}
+          speak={speech.muted ? undefined : speech.speak}
         />
       )
   }

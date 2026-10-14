@@ -50,7 +50,8 @@
     }
   },
   "nav": {
-    "play": "Spielen"
+    "play": "Spielen",
+    "rules": "Regeln"
   },
   "cases": {
     "nominative": "Nominativ",

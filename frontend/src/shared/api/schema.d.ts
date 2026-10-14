@@ -148,6 +148,32 @@ export interface components {
      * @enum {string}
      */
     AnswerType: 'ending' | 'whole_form'
+    /**
+     * @description How a word declines; the rules pages have a table per paradigm.
+     * @enum {string}
+     */
+    DeclensionParadigm:
+      | 'noun_masculine_hard'
+      | 'noun_masculine_sibilant'
+      | 'noun_masculine_soft_sign'
+      | 'noun_masculine_j'
+      | 'noun_masculine_iy'
+      | 'noun_neuter_o'
+      | 'noun_neuter_e'
+      | 'noun_neuter_ie'
+      | 'noun_a'
+      | 'noun_iya'
+      | 'noun_feminine_soft_sign'
+      | 'noun_plural_only'
+      | 'adjective_hard'
+      | 'adjective_soft'
+      | 'adjective_stressed'
+      | 'pronoun_possessive'
+      | 'pronoun_nash'
+      | 'pronoun_etot'
+      | 'personal_pronoun'
+      | 'surname_mixed'
+      | 'surname_adjectival'
     EndingsAttempt: {
       animacy?: null | components['schemas']['NounAnimacy']
       /** @description The ending (or whole form) the player chose. */
@@ -190,6 +216,7 @@ export interface components {
       /** Format: int64 */
       lexeme_id: number
       number: components['schemas']['GrammaticalNumber']
+      paradigm?: null | components['schemas']['DeclensionParadigm']
       /** @description The full target form with stress mark, for feedback. */
       stressed_form: string
       /** @description Dictionary form with stress mark (U+0301). */

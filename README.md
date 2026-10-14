@@ -34,6 +34,16 @@ Pronunciations come from the `tts` service, a local [Piper](https://github.com/O
 
 Frontend checks run natively from `frontend/`: `npm run typecheck`, `npm run lint`, `npm test`.
 
+## Grammar rules
+
+The **Rules** section (`/rules`) explains what each case is used for, its endings and its exceptions, in English, French, German and Russian. The content lives in `frontend/src/shared/grammar/`:
+
+- `paradigms.ts` — ending tables per declension pattern (language-independent);
+- `cases.ts` — uses and exceptions per case, with Russian examples;
+- `texts/{en,fr,de,ru}.ts` — the explanations, typed so a missing translation fails the type check.
+
+The backend tags every game word with its pattern (`domain::rules::paradigm`), so a wrong answer can show exactly the rule that applies.
+
 ## Backend layout
 
 | Crate | Role |

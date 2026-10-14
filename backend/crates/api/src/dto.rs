@@ -3,6 +3,7 @@
 
 use domain::game::{AnswerKind, LevelId};
 use domain::grammar::{Animacy, Case, Gender, Locale, Number};
+use domain::rules::Paradigm;
 
 macro_rules! mirror_enum {
     ($(#[$meta:meta])* $name:ident <=> $domain:ident { $($variant:ident),+ $(,)? }) => {
@@ -63,6 +64,18 @@ mirror_enum! {
 }
 
 mirror_enum! {
+    /// How a word declines; the rules pages have a table per paradigm.
+    DeclensionParadigm <=> Paradigm {
+        NounMasculineHard, NounMasculineSibilant, NounMasculineSoftSign, NounMasculineJ,
+        NounMasculineIy, NounNeuterO, NounNeuterE, NounNeuterIe, NounA, NounIya,
+        NounFeminineSoftSign, NounPluralOnly,
+        AdjectiveHard, AdjectiveSoft, AdjectiveStressed,
+        PronounPossessive, PronounNash, PronounEtot, PersonalPronoun,
+        SurnameMixed, SurnameAdjectival,
+    }
+}
+
+mirror_enum! {
     /// A difficulty level of the games.
     Level <=> LevelId {
         BasicNouns, IntermediateNouns, AdvancedNouns,
@@ -81,6 +94,10 @@ mod tests {
         for &level in LevelId::ALL {
             let json = serde_json::to_string(&Level::from(level)).unwrap();
             assert_eq!(json, format!("\"{}\"", level.as_str()));
+        }
+        for &paradigm in Paradigm::ALL {
+            let json = serde_json::to_string(&DeclensionParadigm::from(paradigm)).unwrap();
+            assert_eq!(json, format!("\"{}\"", paradigm.as_str()));
         }
         for &case in Case::ALL {
             let json = serde_json::to_string(&GrammaticalCase::from(case)).unwrap();

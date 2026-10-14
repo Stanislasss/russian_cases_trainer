@@ -5,6 +5,7 @@ use application::ports::{BoxError, RepoError};
 use async_trait::async_trait;
 use domain::game::AnswerKind;
 use domain::grammar::{Animacy, Gender, Locale};
+use domain::rules::paradigm;
 use domain::user::UserId;
 use sqlx::PgPool;
 
@@ -145,6 +146,9 @@ impl ExerciseRepository for PgExerciseRepository {
             answer: String,
             accepted: Vec<String>,
             stressed_form: String,
+            pos: String,
+            lemma: String,
+            lexeme_gender: Option<String>,
         }
 
         let (pos, ranks, numbers, case, whole) = filter_binds(filter);
@@ -162,7 +166,8 @@ impl ExerciseRepository for PgExerciseRepository {
                       WHERE v.lexeme_id = p.lexeme_id AND v.grammatical_case = $4
                         AND v.number = p.number AND v.gender = p.gender
                         AND v.animacy = p.animacy AND ($5 OR NOT v.irregular)) AS accepted,
-                    coalesce(f.stressed_form, f.form) AS stressed_form
+                    coalesce(f.stressed_form, f.form) AS stressed_form,
+                    l.pos, l.lemma, l.gender AS lexeme_gender
                FROM picked p
                JOIN lexemes l ON l.id = p.lexeme_id
                JOIN forms f ON f.lexeme_id = p.lexeme_id AND f.grammatical_case = $4
@@ -191,7 +196,15 @@ impl ExerciseRepository for PgExerciseRepository {
 
         rows.into_iter()
             .map(|r| {
+                let lexeme_gender = r
+                    .lexeme_gender
+                    .as_deref()
+                    .map(str::parse::<Gender>)
+                    .transpose()
+                    .map_err(|e| RepoError::Other(Box::new(e)))?;
+                let pos = r.pos.parse().map_err(|e| RepoError::Other(Box::new(e)))?;
                 Ok(GameItem {
+                    paradigm: paradigm(pos, &r.lemma, lexeme_gender),
                     lexeme_id: r.lexeme_id,
                     stressed_lemma: r.stressed_lemma,
                     translations: r
@@ -479,6 +492,7 @@ mod tests {
         accepted.sort();
         assert_eq!(accepted, ["ой", "ою"]);
         assert_eq!(kniga.stressed_form, "кни\u{301}гой");
+        assert_eq!(kniga.paradigm, Some(domain::rules::Paradigm::NounA));
         assert_eq!(kniga.translations, [(Locale::En, "book".to_owned())]);
 
         let intermediate = filter(&[LevelId::IntermediateNouns], Case::Instrumental);

@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use domain::game::{AnswerKind, LevelId, LevelSpec};
 use domain::grammar::{Animacy, Case, Gender, Locale, Number, PartOfSpeech};
 use domain::inflection::{adjective_endings, noun_endings};
+use domain::rules::Paradigm;
 use domain::user::UserId;
 
 use crate::ports::{BoxError, RepoError};
@@ -49,6 +50,8 @@ pub struct GameItem {
     /// `answer` plus those of alternative forms (книгой / книгою, его / него).
     pub accepted: Vec<String>,
     pub stressed_form: String,
+    /// The declension pattern, for explaining mistakes; `None` if it fits none.
+    pub paradigm: Option<Paradigm>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -272,6 +275,7 @@ mod tests {
                     answer: zones[0].clone(),
                     accepted: vec![zones[0].clone()],
                     stressed_form: "кни\u{301}гой".into(),
+                    paradigm: Some(Paradigm::NounA),
                 })
                 .collect())
         }

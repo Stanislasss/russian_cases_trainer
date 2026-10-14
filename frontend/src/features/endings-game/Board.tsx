@@ -14,13 +14,18 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Speech } from '../../shared/speech/useSpeech'
 import { Button } from '../../shared/ui/Button'
-import { answerLabel, translationFor } from './format'
+import { answerLabel } from '../../shared/grammar/format'
+import { RuleCard } from '../../shared/grammar/RuleCard'
+import { useGrammarTexts } from '../../shared/grammar/texts'
+import { translationFor } from './format'
 import { ARCADE_LIVES, type Playing, PRACTICE_ROUND, type Word } from './gameReducer'
 
 interface Props {
   state: Playing
   onAnswer: (wordId: number, ending: string) => void
   onQuit: () => void
+  /** Practice: move on after reading why an answer was wrong. */
+  onContinue: () => void
   speech: Speech
 }
 
@@ -32,8 +37,9 @@ const wordId = (id: number) => `word:${id}`
  * then an ending, or with the number keys (tapping/keys without a selected word
  * answer the oldest word on the board).
  */
-export function Board({ state, onAnswer, onQuit, speech }: Props) {
+export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
   const { t } = useTranslation()
+  const g = useGrammarTexts()
   const [selected, setSelected] = useState<number | null>(null)
   const [dragging, setDragging] = useState<Word | null>(null)
   const sensors = useSensors(
@@ -51,6 +57,10 @@ export function Board({ state, onAnswer, onQuit, speech }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (state.paused) {
+        if (e.key === 'Enter') onContinue()
+        return
+      }
       const index = Number(e.key) - 1
       if (Number.isInteger(index) && index >= 0 && index < state.zones.length && target) {
         onAnswer(target.id, state.zones[index])
@@ -59,7 +69,7 @@ export function Board({ state, onAnswer, onQuit, speech }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state.zones, target, onAnswer])
+  }, [state.zones, state.paused, target, onAnswer, onContinue])
 
   const onDragStart = (e: DragStartEvent) =>
     setDragging(state.words.find((w) => wordId(w.id) === e.active.id) ?? null)
@@ -74,6 +84,7 @@ export function Board({ state, onAnswer, onQuit, speech }: Props) {
   }
 
   const last = state.results.at(-1)
+  const mistake = state.paused && last && !last.correct && last.chosen !== null ? last : null
 
   return (
     <DndContext
@@ -82,95 +93,115 @@ export function Board({ state, onAnswer, onQuit, speech }: Props) {
       onDragEnd={onDragEnd}
       onDragCancel={() => setDragging(null)}
     >
-      <section className="mx-auto flex max-w-3xl flex-col gap-4">
-        <p className="text-center text-sm text-slate-500">
-          {t('game.case')}:{' '}
-          <strong className="text-lg text-sky-800">{t(`cases.${state.gameCase}`)}</strong>
-        </p>
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-medium">
-            {state.mode === 'practice'
-              ? t('game.progress', { done: state.results.length, total: PRACTICE_ROUND })
-              : `${t('game.score')}: ${state.score}`}
-          </span>
-          {state.mode === 'arcade' && (
-            <span aria-label={t('game.lives', { count: state.lives })}>
-              {'♥'.repeat(state.lives)}
-              <span className="text-slate-300">{'♥'.repeat(ARCADE_LIVES - state.lives)}</span>
-              {state.streak >= 2 && (
-                <span className="ml-3 text-amber-600">
-                  {t('game.streak', { count: state.streak })}
-                </span>
-              )}
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="flex flex-col gap-4">
+          <p className="text-center text-sm text-slate-500">
+            {t('game.case')}:{' '}
+            <strong className="text-lg text-sky-800">{t(`cases.${state.gameCase}`)}</strong>
+          </p>
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">
+              {state.mode === 'practice'
+                ? t('game.progress', { done: state.results.length, total: PRACTICE_ROUND })
+                : `${t('game.score')}: ${state.score}`}
             </span>
-          )}
-          <span>
-            <Button
-              variant="ghost"
-              onClick={speech.toggleMuted}
-              aria-pressed={speech.muted}
-              aria-label={t(speech.muted ? 'game.unmute' : 'game.mute')}
-              title={t(speech.muted ? 'game.unmute' : 'game.mute')}
-            >
-              {speech.muted ? '🔇' : '🔊'}
-            </Button>
-            <Button variant="ghost" onClick={onQuit}>
-              {t('game.quit')}
-            </Button>
-          </span>
-        </div>
-
-        <div
-          className={`relative rounded-lg border border-slate-200 bg-white ${
-            state.mode === 'arcade'
-              ? 'h-[45vh] overflow-hidden'
-              : 'flex min-h-40 items-center justify-center'
-          }`}
-        >
-          {state.words.map((word) => (
-            <WordCard
-              key={word.id}
-              word={word}
-              arcade={state.mode === 'arcade'}
-              selected={word.id === selected}
-              hidden={dragging?.id === word.id}
-              onSelect={() => setSelected(word.id === selected ? null : word.id)}
-              onListen={speech.muted ? undefined : () => speech.speak(word.item.stressed_lemma)}
-            />
-          ))}
-        </div>
-
-        <p aria-live="polite" className="min-h-6 text-center text-sm">
-          {last &&
-            (last.correct ? (
-              <span className="text-green-700">✓ {last.item.stressed_form}</span>
-            ) : last.chosen === null ? (
-              <span className="text-red-700">
-                {t('game.feedback.missed', { form: last.item.stressed_form })}
+            {state.mode === 'arcade' && (
+              <span aria-label={t('game.lives', { count: state.lives })}>
+                {'♥'.repeat(state.lives)}
+                <span className="text-slate-300">{'♥'.repeat(ARCADE_LIVES - state.lives)}</span>
+                {state.streak >= 2 && (
+                  <span className="ml-3 text-amber-600">
+                    {t('game.streak', { count: state.streak })}
+                  </span>
+                )}
               </span>
-            ) : (
-              <span className="text-red-700">
-                {t('game.feedback.wrong', {
-                  chosen: answerLabel(last.chosen, state.answerKind),
-                  form: last.item.stressed_form,
-                })}
-              </span>
+            )}
+            <span>
+              <Button
+                variant="ghost"
+                onClick={speech.toggleMuted}
+                aria-pressed={speech.muted}
+                aria-label={t(speech.muted ? 'game.unmute' : 'game.mute')}
+                title={t(speech.muted ? 'game.unmute' : 'game.mute')}
+              >
+                {speech.muted ? '🔇' : '🔊'}
+              </Button>
+              <Button variant="ghost" onClick={onQuit}>
+                {t('game.quit')}
+              </Button>
+            </span>
+          </div>
+
+          <div
+            className={`relative rounded-lg border border-slate-200 bg-white ${
+              state.mode === 'arcade'
+                ? 'h-[45vh] overflow-hidden'
+                : 'flex min-h-40 items-center justify-center'
+            }`}
+          >
+            {state.words.map((word) => (
+              <WordCard
+                key={word.id}
+                word={word}
+                arcade={state.mode === 'arcade'}
+                selected={word.id === selected}
+                hidden={dragging?.id === word.id}
+                onSelect={() => setSelected(word.id === selected ? null : word.id)}
+                onListen={speech.muted ? undefined : () => speech.speak(word.item.stressed_lemma)}
+              />
             ))}
-        </p>
+          </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {state.zones.map((zone, i) => (
-            <Zone
-              key={zone}
-              zone={zone}
-              label={answerLabel(zone, state.answerKind)}
-              shortcut={i + 1}
-              onClick={() => answer(zone)}
+          <p aria-live="polite" className="min-h-6 text-center text-sm">
+            {last &&
+              (last.correct ? (
+                <span className="text-green-700">✓ {last.item.stressed_form}</span>
+              ) : last.chosen === null ? (
+                <span className="text-red-700">
+                  {t('game.feedback.missed', { form: last.item.stressed_form })}
+                </span>
+              ) : (
+                <span className="text-red-700">
+                  {t('game.feedback.wrong', {
+                    chosen: answerLabel(last.chosen, state.answerKind),
+                    form: last.item.stressed_form,
+                  })}
+                </span>
+              ))}
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {state.zones.map((zone, i) => (
+              <Zone
+                key={zone}
+                zone={zone}
+                label={answerLabel(zone, state.answerKind)}
+                shortcut={i + 1}
+                onClick={() => answer(zone)}
+                disabled={state.paused}
+              />
+            ))}
+          </div>
+          <p className="text-center text-xs text-slate-500">{t('game.howTo')}</p>
+        </section>
+
+        {/* Beside the board on wide screens, below it on phones. */}
+        {mistake && mistake.chosen !== null && (
+          <div className="space-y-3">
+            <RuleCard
+              item={mistake.item}
+              chosen={mistake.chosen}
+              gameCase={state.gameCase}
+              answerKind={state.answerKind}
+              speak={speech.muted ? undefined : speech.speak}
             />
-          ))}
-        </div>
-        <p className="text-center text-xs text-slate-500">{t('game.howTo')}</p>
-      </section>
+            {/* Focused: reading, then Enter, is the only thing to do now. */}
+            <Button onClick={onContinue} autoFocus className="w-full">
+              {g.explanation.continue}
+            </Button>
+          </div>
+        )}
+      </div>
 
       <DragOverlay dropAnimation={null}>
         {dragging && <CardFace word={dragging} selected={false} />}
@@ -184,9 +215,11 @@ function Zone({
   label,
   shortcut,
   onClick,
+  disabled,
 }: {
   zone: string
   label: string
+  disabled?: boolean
   shortcut: number
   onClick: () => void
 }) {
@@ -197,8 +230,9 @@ function Zone({
       ref={setNodeRef}
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={zone === '' ? t('game.zeroEnding') : label}
-      className={`relative rounded-lg border-2 py-5 text-xl font-semibold transition-colors ${
+      className={`relative rounded-lg border-2 py-5 text-xl font-semibold transition-colors disabled:opacity-40 ${
         isOver ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white hover:border-slate-400'
       }`}
     >

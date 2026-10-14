@@ -9,12 +9,15 @@ use sha2::{Digest, Sha256};
 
 use crate::ports::BoxError;
 
-/// Words and short forms only: this isn't a general text-to-speech proxy.
-pub const MAX_CHARS: usize = 40;
+/// Words and short example sentences only: this isn't a general text-to-speech proxy.
+pub const MAX_CHARS: usize = 100;
+
+/// Punctuation allowed in example sentences («У меня́ нет вре́мени.»).
+const PUNCTUATION: &[char] = &['.', ',', '!', '?', ':', ';', '—', '–', '«', '»', '(', ')'];
 
 #[derive(Debug, thiserror::Error)]
 pub enum SpeechError {
-    #[error("only short Russian words can be pronounced")]
+    #[error("only short Russian words and sentences can be pronounced")]
     InvalidText,
     #[error("speech synthesis is unavailable")]
     Unavailable(#[source] BoxError),
@@ -46,10 +49,11 @@ impl SpeechService {
         Self { synthesizer, cache }
     }
 
-    /// WAV audio of a Russian word, ideally stress-marked (кни́гой).
+    /// WAV audio of a Russian word or short sentence, ideally stress-marked (кни́гой).
     pub async fn say(&self, text: &str) -> Result<Vec<u8>, SpeechError> {
         let text = text.trim();
-        if text.chars().count() > MAX_CHARS || !stress::is_russian(text) {
+        let words: String = text.chars().filter(|c| !PUNCTUATION.contains(c)).collect();
+        if text.chars().count() > MAX_CHARS || !stress::is_russian(&words) {
             return Err(SpeechError::InvalidText);
         }
 
@@ -154,13 +158,27 @@ mod tests {
     #[tokio::test]
     async fn only_short_russian_text_is_spoken() {
         let (speech, synthesizer) = service(false);
-        for text in ["hello", "", "книга!", &"а".repeat(MAX_CHARS + 1)] {
+        for text in [
+            "hello",
+            "",
+            "книга!!1",
+            "кни́га, book",
+            "?!",
+            &"а".repeat(MAX_CHARS + 1),
+        ] {
             assert!(
                 matches!(speech.say(text).await, Err(SpeechError::InvalidText)),
                 "{text}"
             );
         }
         assert_eq!(synthesizer.calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn example_sentences_can_be_spoken() {
+        let (speech, _) = service(false);
+        assert!(speech.say("У меня́ нет вре́мени.").await.is_ok());
+        assert!(speech.say("Москва́ — столи́ца Росси́и.").await.is_ok());
     }
 
     #[tokio::test]

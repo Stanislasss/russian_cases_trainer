@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Button } from '../../shared/ui/Button'
-import { answerLabel } from './format'
+import { answerLabel } from '../../shared/grammar/format'
+import { RuleCard } from '../../shared/grammar/RuleCard'
 import type { Finished } from './gameReducer'
 
 interface Props {
@@ -9,9 +10,11 @@ interface Props {
   loggedIn: boolean
   onAgain: () => void
   onSettings: () => void
+  /** Plays a Russian text, for the 🔊 buttons in the rule explanations. */
+  speak?: (text: string) => void
 }
 
-export function SummaryScreen({ state, loggedIn, onAgain, onSettings }: Props) {
+export function SummaryScreen({ state, loggedIn, onAgain, onSettings, speak }: Props) {
   const { t } = useTranslation()
   const correct = state.results.filter((r) => r.correct).length
   const mistakes = state.results.filter((r) => !r.correct)
@@ -38,15 +41,31 @@ export function SummaryScreen({ state, loggedIn, onAgain, onSettings }: Props) {
           <h2 className="mb-2 font-semibold">{t('game.summary.mistakes')}</h2>
           <ul className="divide-y divide-slate-200 rounded border border-slate-200 bg-white">
             {mistakes.map((r, i) => (
-              <li key={i} className="flex items-baseline justify-between px-3 py-2">
-                <span>
-                  {r.item.stressed_lemma} → <strong>{r.item.stressed_form}</strong>
-                </span>
-                <span className="text-sm text-red-600">
-                  {r.chosen === null
-                    ? t('game.summary.missed')
-                    : answerLabel(r.chosen, state.answerKind)}
-                </span>
+              <li key={i} className="px-3 py-2">
+                {/* Open a mistake to see the rule behind it. */}
+                <details>
+                  <summary className="flex cursor-pointer items-baseline justify-between gap-2">
+                    <span>
+                      {r.item.stressed_lemma} → <strong>{r.item.stressed_form}</strong>
+                    </span>
+                    <span className="text-sm text-red-600">
+                      {r.chosen === null
+                        ? t('game.summary.missed')
+                        : answerLabel(r.chosen, state.answerKind)}
+                    </span>
+                  </summary>
+                  {r.chosen !== null && (
+                    <div className="mt-2">
+                      <RuleCard
+                        item={r.item}
+                        chosen={r.chosen}
+                        gameCase={state.gameCase}
+                        answerKind={state.answerKind}
+                        speak={speak}
+                      />
+                    </div>
+                  )}
+                </details>
               </li>
             ))}
           </ul>

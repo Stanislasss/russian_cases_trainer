@@ -50,7 +50,8 @@
     }
   },
   "nav": {
-    "play": "Play"
+    "play": "Play",
+    "rules": "Rules"
   },
   "cases": {
     "nominative": "Nominative",

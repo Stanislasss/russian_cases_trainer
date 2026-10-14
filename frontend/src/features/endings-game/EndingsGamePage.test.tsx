@@ -14,6 +14,7 @@ const kniga: Item = {
   answer: 'ой',
   accepted: ['ой', 'ою'],
   stressed_form: 'кни́гой',
+  paradigm: 'noun_a',
 }
 const stol: Item = {
   lexeme_id: 2,
@@ -25,6 +26,7 @@ const stol: Item = {
   answer: 'ом',
   accepted: ['ом'],
   stressed_form: 'столо́м',
+  paradigm: 'noun_masculine_hard',
 }
 const batch = () => json(200, { answer_kind: 'ending', zones: ['ом', 'ой'], items: [kniga, stol] })
 
@@ -58,7 +60,7 @@ test('a practice round from setup to summary', async () => {
   await playPracticeRound()
 
   expect(screen.getByText('1 of 2 correct')).toBeInTheDocument()
-  expect(screen.getByText('столо́м')).toBeInTheDocument() // listed under mistakes
+  expect(screen.getByText('столо́м', { selector: 'summary strong' })).toBeInTheDocument() // listed under mistakes
   // Besides the header's link, the summary offers one that returns to the game.
   const loginLinks = screen.getAllByRole('link', { name: 'Log in' })
   expect(loginLinks.map((a) => a.getAttribute('href'))).toContain('/login?next=%2Fplay%2Fendings')
@@ -150,6 +152,7 @@ test('personal pronouns are played alone, on whole forms', async () => {
     answer: 'им',
     accepted: ['им', 'ним'],
     stressed_form: 'им',
+    paradigm: 'personal_pronoun',
   }
   const fetchMock = mockApi({
     'POST /api/games/endings/batch': () =>
@@ -241,5 +244,70 @@ describe('pronunciation', () => {
     await screen.findByText('стол')
     expect(spoken).toEqual(['кни́га'])
     expect(localStorage.getItem('speech.muted')).toBe('true')
+  })
+})
+
+describe('explanations', () => {
+  const okno: Item = {
+    lexeme_id: 3,
+    stressed_lemma: 'окно́',
+    translations: { en: 'window' },
+    number: 'singular',
+    gender: null,
+    animacy: null,
+    answer: 'ом',
+    accepted: ['ом'],
+    stressed_form: 'окно́м',
+    paradigm: 'noun_neuter_o',
+  }
+
+  test('a wrong drop in practice shows the rule and waits for Continue', async () => {
+    mockApi({
+      'POST /api/games/endings/batch': () =>
+        json(200, { answer_kind: 'ending', zones: ['ом', 'ой'], items: [kniga, okno, stol] }),
+    })
+    renderAt('/play/endings')
+    fireEvent.click(screen.getByLabelText('Instrumental'))
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    await screen.findByText('кни́га')
+
+    fireEvent.click(screen.getByRole('button', { name: '-ом' })) // wrong: кни́гой
+    const panel = await screen.findByRole('complementary')
+    expect(within(panel).getByText(/Nouns in -а\/-я/)).toBeInTheDocument()
+    // Why -ом is wrong: where it belongs instead.
+    expect(
+      within(panel).getByText(/-ом is used for: Masculine nouns ending in a consonant/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('окно́')).not.toBeInTheDocument() // the next word waits
+    expect(screen.getByRole('button', { name: '-ой' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByText('окно́')).toBeInTheDocument()
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+  })
+
+  test('arcade mistakes are explained in the summary', async () => {
+    mockApi({ 'POST /api/games/endings/batch': batch })
+    renderAt('/play/endings')
+    fireEvent.click(screen.getByLabelText(/Arcade/))
+    fireEvent.click(screen.getByLabelText('Instrumental'))
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    await screen.findByText('кни́га')
+
+    fireEvent.click(screen.getByRole('button', { name: '-ом' })) // wrong, no pause in arcade
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Quit' }))
+
+    await screen.findByRole('heading', { name: 'Results' })
+    fireEvent.click(screen.getByText('кни́гой', { selector: 'summary strong' })) // open the mistake
+    expect(
+      await screen.findByRole('link', { name: /All the rules for this case/ }),
+    ).toHaveAttribute('href', '/rules/instrumental#noun_a')
+  })
+
+  test('a rules page can open the game on its case', async () => {
+    mockApi({})
+    renderAt('/play/endings?case=dative')
+    expect(screen.getByLabelText('Dative')).toBeChecked()
   })
 })

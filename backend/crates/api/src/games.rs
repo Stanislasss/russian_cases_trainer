@@ -12,7 +12,8 @@ use utoipa::ToSchema;
 use crate::AppState;
 use crate::auth::CurrentUser;
 use crate::dto::{
-    AnswerType, GrammaticalCase, GrammaticalGender, GrammaticalNumber, Level, NounAnimacy,
+    AnswerType, DeclensionParadigm, GrammaticalCase, GrammaticalGender, GrammaticalNumber, Level,
+    NounAnimacy,
 };
 use crate::error::{AppError, Problem};
 
@@ -60,6 +61,8 @@ pub struct EndingsItem {
     accepted: Vec<String>,
     /// The full target form with stress mark, for feedback.
     stressed_form: String,
+    /// The table the word follows, for explaining mistakes; absent for irregular words.
+    paradigm: Option<DeclensionParadigm>,
 }
 
 /// A word's meanings per UI language; missing where the dictionaries have none.
@@ -100,6 +103,7 @@ impl From<GameItem> for EndingsItem {
             answer: item.answer,
             accepted: item.accepted,
             stressed_form: item.stressed_form,
+            paradigm: item.paradigm.map(Into::into),
         }
     }
 }

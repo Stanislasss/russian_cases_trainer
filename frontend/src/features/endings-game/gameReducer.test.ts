@@ -58,6 +58,10 @@ describe('practice', () => {
 
     for (let i = 0; i < PRACTICE_ROUND; i++) {
       state = answerFirst(state, i % 2 === 0 ? 'ой' : 'ом')
+      // A mistake pauses the round until the player moves on.
+      if (state.phase === 'playing' && state.paused) {
+        state = gameReducer(state, { type: 'continue', now: 0 })
+      }
     }
     expect(state).toMatchObject({ phase: 'summary', score: PRACTICE_ROUND / 2 })
     if (state.phase === 'summary') {
@@ -84,11 +88,31 @@ describe('practice', () => {
     let state = answerFirst(run([start('practice', items(5))]), 'ом')
     state = gameReducer(state, { type: 'tick', now: 1_000_000 })
     expect(playing(state)).toMatchObject({ lives: ARCADE_LIVES, streak: 0 })
+  })
+
+  test('a mistake pauses until the player continues', () => {
+    let state = answerFirst(run([start('practice', items(5))]), 'ом')
+    expect(playing(state)).toMatchObject({ paused: true, words: [] })
+    // Answers while paused go nowhere: there's no word on the board.
+    state = gameReducer(state, { type: 'continue', now: 5 })
+    expect(playing(state).paused).toBe(false)
+    expect(playing(state).words).toHaveLength(1)
+  })
+
+  test('a correct answer does not pause', () => {
+    const state = answerFirst(run([start('practice', items(5))]), 'ой')
+    expect(playing(state)).toMatchObject({ paused: false })
     expect(playing(state).words).toHaveLength(1)
   })
 })
 
 describe('arcade', () => {
+  test('mistakes never pause', () => {
+    const state = answerFirst(run([start('arcade', items(20))]), 'ом', 1)
+    expect(playing(state)).toMatchObject({ paused: false })
+    expect(playing(state).words).toHaveLength(1)
+  })
+
   test('spawns words over time, up to a limit', () => {
     const pace = arcadePace(0)
     let state = run([start('arcade', items(20))])

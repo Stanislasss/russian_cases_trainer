@@ -14,6 +14,9 @@ export function Layout() {
             <Link to="/" className="text-lg font-semibold">
               {t('app.title')}
             </Link>
+            <Link to="/rules" className="text-sm hover:underline">
+              {t('nav.rules')}
+            </Link>
             <Link to="/play/endings" className="text-sm hover:underline">
               {t('nav.play')}
             </Link>
