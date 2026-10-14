@@ -1,4 +1,10 @@
 # Multi-stage build: cargo-chef caches the dependency layer so code edits rebuild fast.
+
+# toolbox: full toolchain for `just cargo ...` (tests, clippy, fmt) with the source mounted.
+FROM rust:1-slim-trixie AS toolbox
+RUN rustup component add clippy rustfmt
+WORKDIR /app
+
 FROM rust:1-slim-trixie AS chef
 RUN cargo install cargo-chef --locked
 WORKDIR /app

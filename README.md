@@ -26,6 +26,7 @@ Open http://localhost:5173.
 | `just migrate` | Apply database migrations |
 | `just adminer` | Database web UI on http://localhost:8081 |
 | `just test` | Run the backend tests in a Rust container |
+| `just check` | Backend fmt check + clippy + tests |
 | `just cargo <args>` | Any cargo command in a Rust container |
 | `just gen-api` | Regenerate the TypeScript API types from the running backend |
 

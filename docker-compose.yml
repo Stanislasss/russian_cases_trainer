@@ -73,6 +73,23 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Rust toolchain for tests/clippy/fmt: `just cargo <args>`.
+  cargo:
+    profiles: [tools]
+    build:
+      context: ./backend
+      target: toolbox
+    entrypoint: ["cargo"]
+    env_file: .env
+    volumes:
+      - ./backend:/app
+      - cargo-registry:/usr/local/cargo/registry
+      # Linux build output stays in a volume, apart from any host target/ dir.
+      - cargo-target:/app/target
+    depends_on:
+      db:
+        condition: service_healthy
+
   adminer:
     image: adminer
     profiles: [tools]
@@ -86,3 +103,5 @@ services:
 volumes:
   pgdata:
   importer-data:
+  cargo-registry:
+  cargo-target:

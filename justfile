@@ -1,7 +1,5 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
-rust_image := "rust:1-slim-trixie"
-
 default:
     @just --list
 
@@ -29,10 +27,16 @@ adminer:
 
 # Run any cargo command in a Rust container, e.g. `just cargo clippy --workspace`
 cargo *args:
-    docker run --rm --network russian-cases-trainer_default -e DATABASE_URL=postgres://trainer:trainer@db:5432/trainer -v "{{justfile_directory()}}/backend:/app" -v rct-cargo-registry:/usr/local/cargo/registry -v rct-target:/app/target -w /app {{rust_image}} cargo {{args}}
+    docker compose --profile tools run --rm cargo {{args}}
 
 test:
     just cargo test --workspace
+
+# fmt check + clippy + tests, as CI runs them
+check:
+    just cargo fmt --all --check
+    just cargo clippy --workspace --all-targets -- -D warnings
+    just test
 
 # Regenerate the typed API client from the running backend's OpenAPI spec
 gen-api:
