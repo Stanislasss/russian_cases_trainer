@@ -13,6 +13,15 @@ pub fn strip(word: &str) -> String {
     word.chars().filter(|&c| c != STRESS_MARK).collect()
 }
 
+/// Cyrillic letters, optionally stress-marked and joined by hyphens or spaces
+/// (пресс-конфере́нция). Rejects Latin look-alikes such as the o in "рoга".
+pub fn is_russian(text: &str) -> bool {
+    text.chars().any(char::is_alphabetic)
+        && text
+            .chars()
+            .all(|c| matches!(c, 'а'..='я' | 'А'..='Я' | 'ё' | 'Ё' | '-' | ' ' | STRESS_MARK))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -26,5 +35,14 @@ mod tests {
     fn strip_removes_only_stress_marks() {
         assert_eq!(strip("кни\u{0301}га"), "книга");
         assert_eq!(strip("ёж"), "ёж");
+    }
+
+    #[test]
+    fn russian_text() {
+        assert!(is_russian("кни\u{0301}га"));
+        assert!(is_russian("пресс-конференция"));
+        assert!(!is_russian("рoга")); // Latin o
+        assert!(!is_russian("MP3"));
+        assert!(!is_russian(" - "));
     }
 }

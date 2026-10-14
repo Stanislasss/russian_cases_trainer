@@ -123,6 +123,9 @@
       "loginToSave": ", um deinen Fortschritt zu verfolgen.",
       "again": "Noch einmal",
       "settings": "Einstellungen ändern"
-    }
+    },
+    "listen": "Anhören",
+    "mute": "Aussprache stumm schalten",
+    "unmute": "Aussprache einschalten"
   }
 }

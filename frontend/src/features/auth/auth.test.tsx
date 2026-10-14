@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import i18n from '../../shared/i18n'
-import { json, mockApi, problem, renderAt } from '../../test/app'
+import { json, mockApi, problem, renderAt, requestBodies } from '../../test/app'
 import { safeNext } from './safeNext'
 
 const anna = { id: '1', email: 'anna@example.com', display_name: 'Anna', ui_locale: 'en' }
@@ -23,7 +23,7 @@ describe('login', () => {
 
     expect(await screen.findByText('Enter a valid email address.')).toBeInTheDocument()
     expect(screen.getByText('Required.')).toBeInTheDocument()
-    expect(fetchMock.mock.calls.some(([r]) => r.url.endsWith('/api/auth/login'))).toBe(false)
+    expect(await requestBodies(fetchMock, '/api/auth/login')).toEqual([])
   })
 
   test('shows wrong credentials', async () => {
@@ -79,10 +79,8 @@ describe('register', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Créer le compte' }))
 
     await screen.findByRole('link', { name: 'Anna' })
-    const request = fetchMock.mock.calls
-      .map(([r]) => r)
-      .find((r) => r.url.endsWith('/api/auth/register'))!
-    expect(await request.json()).toMatchObject({ ui_locale: 'fr', email: 'anna@example.com' })
+    const [request] = await requestBodies(fetchMock, '/api/auth/register')
+    expect(request).toMatchObject({ ui_locale: 'fr', email: 'anna@example.com' })
   })
 })
 

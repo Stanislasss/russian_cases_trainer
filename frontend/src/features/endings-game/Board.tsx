@@ -12,6 +12,7 @@ import {
 } from '@dnd-kit/core'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { Speech } from '../../shared/speech/useSpeech'
 import { Button } from '../../shared/ui/Button'
 import { answerLabel, translationFor } from './format'
 import { ARCADE_LIVES, type Playing, PRACTICE_ROUND, type Word } from './gameReducer'
@@ -20,6 +21,7 @@ interface Props {
   state: Playing
   onAnswer: (wordId: number, ending: string) => void
   onQuit: () => void
+  speech: Speech
 }
 
 const zoneId = (ending: string) => `zone:${ending}`
@@ -30,7 +32,7 @@ const wordId = (id: number) => `word:${id}`
  * then an ending, or with the number keys (tapping/keys without a selected word
  * answer the oldest word on the board).
  */
-export function Board({ state, onAnswer, onQuit }: Props) {
+export function Board({ state, onAnswer, onQuit, speech }: Props) {
   const { t } = useTranslation()
   const [selected, setSelected] = useState<number | null>(null)
   const [dragging, setDragging] = useState<Word | null>(null)
@@ -102,9 +104,20 @@ export function Board({ state, onAnswer, onQuit }: Props) {
               )}
             </span>
           )}
-          <Button variant="ghost" onClick={onQuit}>
-            {t('game.quit')}
-          </Button>
+          <span>
+            <Button
+              variant="ghost"
+              onClick={speech.toggleMuted}
+              aria-pressed={speech.muted}
+              aria-label={t(speech.muted ? 'game.unmute' : 'game.mute')}
+              title={t(speech.muted ? 'game.unmute' : 'game.mute')}
+            >
+              {speech.muted ? '🔇' : '🔊'}
+            </Button>
+            <Button variant="ghost" onClick={onQuit}>
+              {t('game.quit')}
+            </Button>
+          </span>
         </div>
 
         <div
@@ -122,6 +135,7 @@ export function Board({ state, onAnswer, onQuit }: Props) {
               selected={word.id === selected}
               hidden={dragging?.id === word.id}
               onSelect={() => setSelected(word.id === selected ? null : word.id)}
+              onListen={speech.muted ? undefined : () => speech.speak(word.item.stressed_lemma)}
             />
           ))}
         </div>
@@ -202,9 +216,10 @@ interface CardProps {
   selected: boolean
   hidden: boolean
   onSelect: () => void
+  onListen?: () => void
 }
 
-function WordCard({ word, arcade, selected, hidden, onSelect }: CardProps) {
+function WordCard({ word, arcade, selected, hidden, onSelect, onListen }: CardProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: wordId(word.id) })
   // Spread words across the width; deterministic so they don't jump on re-render.
   const left = 5 + ((word.id * 37) % 60)
@@ -217,12 +232,19 @@ function WordCard({ word, arcade, selected, hidden, onSelect }: CardProps) {
       className={`touch-none select-none ${arcade ? 'absolute animate-fall' : ''} ${hidden ? 'opacity-30' : ''}`}
       style={arcade ? { left: `${left}%`, animationDuration: `${word.duration}ms` } : undefined}
     >
-      <CardFace word={word} selected={selected} />
+      <CardFace word={word} selected={selected} onListen={onListen} />
     </div>
   )
 }
 
-function CardFace({ word, selected }: { word: Word; selected: boolean }) {
+interface CardFaceProps {
+  word: Word
+  selected: boolean
+  /** Shows a 🔊 button; absent when muted and on the copy being dragged. */
+  onListen?: () => void
+}
+
+function CardFace({ word, selected, onListen }: CardFaceProps) {
   const { t, i18n } = useTranslation()
   return (
     <div
@@ -230,7 +252,26 @@ function CardFace({ word, selected }: { word: Word; selected: boolean }) {
         selected ? 'border-sky-500 ring-2 ring-sky-200' : 'border-slate-300'
       }`}
     >
-      <div className="text-2xl font-semibold">{word.item.stressed_lemma}</div>
+      <div className="flex items-center justify-center gap-1">
+        <span className="text-2xl font-semibold">{word.item.stressed_lemma}</span>
+        {onListen && (
+          <button
+            type="button"
+            aria-label={t('game.listen')}
+            title={t('game.listen')}
+            className="rounded px-1 text-lg hover:bg-slate-100"
+            // Keep the card's drag, selection and keyboard handling out of it.
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onListen()
+            }}
+          >
+            🔊
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap items-center justify-center gap-1 text-xs text-slate-500">
         {/* Which form is asked: gender and animacy matter for adjective-like words. */}
         {[word.item.gender, word.item.animacy, word.item.number].map(

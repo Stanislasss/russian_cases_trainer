@@ -123,6 +123,9 @@
       "neuter": "n.",
       "animate": "animé",
       "inanimate": "inanimé"
-    }
+    },
+    "listen": "Écouter",
+    "mute": "Couper la prononciation",
+    "unmute": "Activer la prononciation"
   }
 }

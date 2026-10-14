@@ -123,6 +123,9 @@
       "neuter": "n.",
       "animate": "animate",
       "inanimate": "inanimate"
-    }
+    },
+    "listen": "Listen",
+    "mute": "Mute pronunciation",
+    "unmute": "Turn pronunciation on"
   }
 }

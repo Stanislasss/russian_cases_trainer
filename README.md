@@ -19,6 +19,8 @@ just import    # load the noun lexicon and grammar rules
 
 Open http://localhost:5173.
 
+Pronunciations come from the `tts` service, a local [Piper](https://github.com/OHF-Voice/piper1-gpl) server (GPL-3.0) with four Russian voices. Compare them on http://localhost:5002 and set `TTS_VOICE` in `.env` (then `just up`). Audio is cached in the `speech-cache` volume; without the service the game simply has no sound.
+
 | Command | What it does |
 |---|---|
 | `just up` / `just down` | Start / stop the stack |

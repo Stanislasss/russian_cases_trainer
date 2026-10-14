@@ -21,12 +21,13 @@ ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin server --bin importer
 
 FROM debian:trixie-slim AS runtime
-# /data is the importer's download cache; a fresh named volume inherits its ownership.
+# /data (importer downloads) and /speech-cache (synthesized audio) are volume mount
+# points; a fresh named volume inherits their ownership.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --create-home app \
-    && mkdir /data && chown app:app /data
+    && mkdir /data /speech-cache && chown app:app /data /speech-cache
 COPY --from=builder /app/target/release/server /app/target/release/importer /usr/local/bin/
 USER app
 WORKDIR /home/app

@@ -34,13 +34,28 @@ services:
   backend:
     <<: *backend
     command: ["server", "serve"]
+    environment:
+      TTS_URL: http://tts:5000
+      SPEECH_CACHE_DIR: /speech-cache
     ports:
       - "8080:8080"
+    volumes:
+      - speech-cache:/speech-cache
     depends_on:
+      # Not waited on: without it the game just has no sound.
+      tts:
+        condition: service_started
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  # Russian text-to-speech (Piper). The test page on http://localhost:5002 is for
+  # comparing voices; the backend uses http://tts:5000.
+  tts:
+    build: ./tts
+    ports:
+      - "5002:5000"
 
   frontend:
     build:
@@ -105,3 +120,4 @@ volumes:
   importer-data:
   cargo-registry:
   cargo-target:
+  speech-cache:

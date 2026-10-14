@@ -3,6 +3,7 @@
 
 use application::auth::AuthError;
 use application::game::GameError;
+use application::speech::SpeechError;
 use axum::Json;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
@@ -16,6 +17,8 @@ pub enum AppError {
     Auth(#[from] AuthError),
     #[error(transparent)]
     Game(#[from] GameError),
+    #[error(transparent)]
+    Speech(#[from] SpeechError),
     #[error("not logged in")]
     Unauthenticated,
 }
@@ -40,6 +43,8 @@ pub enum ErrorCode {
     InvalidCredentials,
     Unauthenticated,
     InvalidGameRequest,
+    InvalidSpeechText,
+    SpeechUnavailable,
     Internal,
 }
 
@@ -62,6 +67,12 @@ impl AppError {
             AppError::Unauthenticated => (StatusCode::UNAUTHORIZED, Unauthenticated),
             AppError::Game(GameError::Internal(_)) => (StatusCode::INTERNAL_SERVER_ERROR, Internal),
             AppError::Game(_) => (StatusCode::UNPROCESSABLE_ENTITY, InvalidGameRequest),
+            AppError::Speech(SpeechError::InvalidText) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, InvalidSpeechText)
+            }
+            AppError::Speech(SpeechError::Unavailable(_)) => {
+                (StatusCode::SERVICE_UNAVAILABLE, SpeechUnavailable)
+            }
             AppError::Auth(AuthError::Internal(_)) => (StatusCode::INTERNAL_SERVER_ERROR, Internal),
         }
     }

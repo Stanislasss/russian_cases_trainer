@@ -203,7 +203,7 @@ pub fn parse_nouns(tsv: &str) -> Result<Parsed, ParseError> {
     let mut parsed = Parsed::default();
     for row in table.rows() {
         let lemma = row.cell(basics.bare);
-        if !is_russian_word(lemma) {
+        if !stress::is_russian(lemma) {
             parsed.skipped_non_cyrillic += 1;
             continue;
         }
@@ -259,7 +259,7 @@ pub fn parse_adjectives(tsv: &str) -> Result<Parsed, ParseError> {
     let mut parsed = Parsed::default();
     for row in table.rows() {
         let lemma = row.cell(basics.bare);
-        if !is_russian_word(lemma) {
+        if !stress::is_russian(lemma) {
             parsed.skipped_non_cyrillic += 1;
             continue;
         }
@@ -292,19 +292,11 @@ pub fn variants(cell: &str) -> Vec<String> {
             continue;
         }
         let stressed = stress::from_apostrophes(raw);
-        if is_russian_word(&stress::strip(&stressed)) && !out.contains(&stressed) {
+        if stress::is_russian(&stressed) && !out.contains(&stressed) {
             out.push(stressed);
         }
     }
     out
-}
-
-/// Cyrillic letters, optionally joined by hyphens or spaces (пресс-конференция).
-fn is_russian_word(word: &str) -> bool {
-    word.chars().any(|c| c.is_alphabetic())
-        && word
-            .chars()
-            .all(|c| matches!(c, 'а'..='я' | 'А'..='Я' | 'ё' | 'Ё' | '-' | ' '))
 }
 
 #[cfg(test)]

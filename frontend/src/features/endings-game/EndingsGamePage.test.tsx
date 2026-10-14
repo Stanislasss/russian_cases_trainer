@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import i18n from '../../shared/i18n'
-import { json, mockApi, renderAt, requestBodies } from '../../test/app'
+import { json, mockApi, mockAudio, renderAt, requestBodies } from '../../test/app'
 import type { Item } from './gameReducer'
 
 const kniga: Item = {
@@ -30,6 +30,7 @@ const batch = () => json(200, { answer_kind: 'ending', zones: ['ом', 'ой'], 
 
 beforeEach(async () => {
   localStorage.clear()
+  mockAudio() // jsdom has no audio playback
   await i18n.changeLanguage('en')
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -193,4 +194,52 @@ test('translations follow the language, even mid-game', async () => {
   expect(await screen.findByText('произведение печати')).toBeInTheDocument() // a definition
   await act(() => i18n.changeLanguage('fr'))
   expect(await screen.findByText('book')).toBeInTheDocument() // no French: English
+})
+
+describe('pronunciation', () => {
+  async function startPractice() {
+    mockApi({ 'POST /api/games/endings/batch': batch })
+    renderAt('/play/endings')
+    fireEvent.click(screen.getByLabelText('Instrumental'))
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    await screen.findByText('кни́га')
+  }
+
+  test('practice says each word, and the form after a correct drop only', async () => {
+    const spoken = mockAudio()
+    await startPractice()
+    await waitFor(() => expect(spoken).toEqual(['кни́га']))
+
+    fireEvent.click(screen.getByRole('button', { name: '-ой' })) // correct
+    // The form first, then the next word, which waited for it.
+    await waitFor(() => expect(spoken).toEqual(['кни́га', 'кни́гой', 'стол']))
+
+    fireEvent.click(screen.getByRole('button', { name: '-ой' })) // wrong: столо́м
+    await screen.findByRole('heading', { name: 'Results' })
+    expect(spoken).toEqual(['кни́га', 'кни́гой', 'стол'])
+  })
+
+  test('the card button says the word again', async () => {
+    const spoken = mockAudio()
+    await startPractice()
+    await waitFor(() => expect(spoken).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Listen' }))
+    await waitFor(() => expect(spoken).toEqual(['кни́га', 'кни́га']))
+    // Listening doesn't answer or select the word.
+    expect(screen.getByText('0 / 10')).toBeInTheDocument()
+  })
+
+  test('muting silences everything and is remembered', async () => {
+    const spoken = mockAudio()
+    await startPractice()
+    await waitFor(() => expect(spoken).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mute pronunciation' }))
+    expect(screen.queryByRole('button', { name: 'Listen' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '-ой' })) // correct, but muted
+    await screen.findByText('стол')
+    expect(spoken).toEqual(['кни́га'])
+    expect(localStorage.getItem('speech.muted')).toBe('true')
+  })
 })

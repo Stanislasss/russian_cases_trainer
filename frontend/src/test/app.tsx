@@ -21,8 +21,11 @@ export function mockApi(handlers: Record<string, () => Response>) {
   const defaults: Record<string, () => Response> = {
     'GET /api/me': () => problem(401, 'unauthenticated'),
     'GET /api/health': () => json(200, { status: 'ok' }),
+    'GET /api/speech': () => new Response('RIFF', { headers: { 'content-type': 'audio/wav' } }),
   }
-  const fetchMock = vi.fn(async (request: Request) => {
+  // The API client passes a Request; speech prefetching passes a URL.
+  const fetchMock = vi.fn(async (input: Request | string) => {
+    const request = typeof input === 'string' ? new Request(input) : input
     const key = `${request.method} ${new URL(request.url).pathname}`
     const handler = handlers[key] ?? defaults[key]
     if (!handler) throw new Error(`unexpected request ${key}`)
@@ -34,8 +37,36 @@ export function mockApi(handlers: Record<string, () => Response>) {
 
 /** The bodies of all requests made to `path`. */
 export async function requestBodies(fetchMock: ReturnType<typeof mockApi>, path: string) {
-  const requests = fetchMock.mock.calls.map(([r]) => r).filter((r) => r.url.endsWith(path))
+  const requests = fetchMock.mock.calls
+    .map(([r]) => r)
+    .filter((r): r is Request => typeof r !== 'string' && r.url.endsWith(path))
   return Promise.all(requests.map((r) => r.clone().json()))
+}
+
+/** Replaces `Audio`; returns the words "played", in order (`text` of their URL). */
+export function mockAudio() {
+  const spoken: string[] = []
+  class FakeAudio extends EventTarget {
+    readonly src: string
+    constructor(src: string) {
+      super()
+      this.src = src
+    }
+    paused = true
+    play() {
+      this.paused = false
+      spoken.push(new URL(this.src).searchParams.get('text') ?? '')
+      // Finish at once, so queued words play next.
+      queueMicrotask(() => {
+        this.paused = true
+        this.dispatchEvent(new Event('ended'))
+      })
+      return Promise.resolve()
+    }
+    pause() {}
+  }
+  vi.stubGlobal('Audio', FakeAudio)
+  return spoken
 }
 
 export function renderAt(path: string) {

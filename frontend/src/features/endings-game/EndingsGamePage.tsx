@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useSession } from '../../shared/session/session'
+import { useSpeech } from '../../shared/speech/useSpeech'
 import { type AttemptPayload, fetchBatch, postAttempts } from './api'
 import { Board } from './Board'
-import { gameReducer, initialState, needsRefill, PRACTICE_ROUND, type Result } from './gameReducer'
+import {
+  gameReducer,
+  initialState,
+  needsRefill,
+  PRACTICE_ROUND,
+  type Result,
+  type Word,
+} from './gameReducer'
 import { loadSettings, saveSettings, type Settings } from './settings'
 import { SetupScreen } from './SetupScreen'
 import { SummaryScreen } from './SummaryScreen'
 
 const ARCADE_BATCH = 20
+const NO_RESULTS: Result[] = []
+const NO_WORDS: Word[] = []
 /** Logged-in players' answers are sent in groups of this size (and at the end). */
 const SEND_EVERY = 10
 
@@ -15,6 +25,7 @@ export function EndingsGamePage() {
   const loggedIn = Boolean(useSession().data)
   const [settings, setSettings] = useState(loadSettings)
   const [state, dispatch] = useReducer(gameReducer, initialState)
+  const speech = useSpeech()
   const [starting, setStarting] = useState(false)
   const [setupError, setSetupError] = useState<'empty' | 'failed' | null>(null)
   // The settings the current game was started with (the form may change meanwhile).
@@ -93,6 +104,33 @@ export function EndingsGamePage() {
     if (attempts.length > 0) postAttempts(attempts).catch(() => {}) // stats only; never block play
   }, [state, loggedIn])
 
+  // Speech. The correct form is spoken first: in practice the next word appears
+  // in the same update, and its own pronunciation waits for the form to finish.
+  const { speak, enqueue, prefetch } = speech
+  const results = state.phase === 'setup' ? NO_RESULTS : state.results
+  const spokenResults = useRef(0)
+  useEffect(() => {
+    if (results.length < spokenResults.current) spokenResults.current = 0 // a new game
+    if (results.length === spokenResults.current) return
+    spokenResults.current = results.length
+    const last = results[results.length - 1]
+    if (last.correct) speak(last.item.stressed_form)
+  }, [results, speak])
+
+  // Practice (the slow mode) says each new word; arcade would be a cacophony.
+  const practiceWord =
+    state.phase === 'playing' && state.mode === 'practice' ? state.words[0] : undefined
+  // A word keeps the same object while it's on the board, so this runs once per word.
+  useEffect(() => {
+    if (practiceWord) enqueue(practiceWord.item.stressed_lemma)
+  }, [practiceWord, enqueue])
+
+  // Warm up the answer's audio, so it plays right after the drop.
+  const words = state.phase === 'playing' ? state.words : NO_WORDS
+  useEffect(() => {
+    for (const word of words) prefetch(word.item.stressed_form)
+  }, [words, prefetch])
+
   switch (state.phase) {
     case 'setup':
       return (
@@ -105,7 +143,14 @@ export function EndingsGamePage() {
         />
       )
     case 'playing':
-      return <Board state={state} onAnswer={onAnswer} onQuit={() => dispatch({ type: 'quit' })} />
+      return (
+        <Board
+          state={state}
+          onAnswer={onAnswer}
+          onQuit={() => dispatch({ type: 'quit' })}
+          speech={speech}
+        />
+      )
     case 'summary':
       return (
         <SummaryScreen

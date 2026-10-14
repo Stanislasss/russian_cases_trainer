@@ -6,9 +6,11 @@ use std::sync::Arc;
 use anyhow::Context;
 use application::auth::AuthService;
 use application::game::EndingsGame;
+use application::speech::SpeechService;
 use clap::{Parser, Subcommand};
 use infrastructure::games::{PgAttemptRepository, PgExerciseRepository};
 use infrastructure::security::{Argon2Hasher, OsTokenGenerator, SystemClock};
+use infrastructure::speech::{FsAudioCache, PiperSynthesizer};
 use infrastructure::users::{PgSessionRepository, PgUserRepository};
 use tracing_subscriber::EnvFilter;
 
@@ -30,6 +32,14 @@ enum Command {
         /// Mark cookies `Secure` (only sent over HTTPS).
         #[arg(long, env = "COOKIE_SECURE", default_value_t = false, action = clap::ArgAction::Set)]
         cookie_secure: bool,
+        /// Piper's HTTP server (see tts/Dockerfile).
+        #[arg(long, env = "TTS_URL", default_value = "http://tts:5000")]
+        tts_url: String,
+        #[arg(long, env = "TTS_VOICE", default_value = "ru_RU-irina-medium")]
+        tts_voice: String,
+        /// Where synthesized audio is kept.
+        #[arg(long, env = "SPEECH_CACHE_DIR", default_value = "speech-cache")]
+        speech_cache_dir: std::path::PathBuf,
     },
     /// Apply pending database migrations and exit.
     Migrate {
@@ -57,6 +67,9 @@ async fn main() -> anyhow::Result<()> {
             database_url,
             bind_addr,
             cookie_secure,
+            tts_url,
+            tts_voice,
+            speech_cache_dir,
         } => {
             let pool = infrastructure::connect(&database_url)
                 .await
@@ -72,6 +85,10 @@ async fn main() -> anyhow::Result<()> {
                 endings: EndingsGame::new(
                     Arc::new(PgExerciseRepository::new(pool.clone())),
                     Arc::new(PgAttemptRepository::new(pool)),
+                ),
+                speech: SpeechService::new(
+                    Arc::new(PiperSynthesizer::new(&tts_url, &tts_voice)),
+                    Arc::new(FsAudioCache::new(speech_cache_dir)),
                 ),
                 cookie_secure,
             };

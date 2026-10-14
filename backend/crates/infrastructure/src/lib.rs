@@ -3,6 +3,7 @@
 pub mod games;
 pub mod lexicon;
 pub mod security;
+pub mod speech;
 pub mod users;
 
 use sqlx::postgres::{PgPool, PgPoolOptions};
