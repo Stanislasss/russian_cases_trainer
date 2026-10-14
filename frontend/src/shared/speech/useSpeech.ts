@@ -7,62 +7,86 @@ export function speechUrl(text: string) {
   return `${window.location.origin}/api/speech?text=${encodeURIComponent(text)}`
 }
 
+/** How a request to speak ended: heard to the end, or not heard at all. */
+export type Outcome = 'played' | 'skipped'
+
+interface Entry {
+  text: string
+  done: (outcome: Outcome) => void
+}
+
 // One sound at a time across the app, plus what's waiting to play after it.
-let playing: HTMLAudioElement | null = null
-let queue: string[] = []
+let playing: { audio: HTMLAudioElement; entry: Entry } | null = null
+let queue: Entry[] = []
 
 function playNext() {
-  const text = queue.shift()
-  if (text === undefined) {
+  const entry = queue.shift()
+  if (!entry) {
     playing = null
     return
   }
-  const audio = new Audio(speechUrl(text))
-  playing = audio
-  // Move on once per sound, and never on behalf of a sound that was stopped.
+  const audio = new Audio(speechUrl(entry.text))
+  const current = { audio, entry }
+  playing = current
+  // Settle once per sound, and never on behalf of a sound that was stopped.
   let finished = false
-  const next = () => {
-    if (finished || playing !== audio) return
+  const finish = (outcome: Outcome) => {
+    if (finished || playing !== current) return
     finished = true
+    entry.done(outcome)
     playNext()
   }
-  audio.addEventListener('ended', next)
-  audio.addEventListener('error', next)
+  audio.addEventListener('ended', () => finish('played'))
+  audio.addEventListener('error', () => finish('skipped'))
   // Browsers refuse audio before the first user gesture; sound is a bonus, not essential.
-  audio.play()?.catch(next)
+  audio.play()?.catch(() => finish('skipped'))
 }
 
+/** Stops the current sound and drops the queue; everything pending counts as skipped. */
 function stop() {
+  const pending = [...(playing ? [playing.entry] : []), ...queue]
   queue = []
-  playing?.pause()
+  playing?.audio.pause()
   playing = null
+  pending.forEach((entry) => entry.done('skipped'))
 }
 
 export type Speech = ReturnType<typeof useSpeech>
 
 /**
  * Pronounces Russian words. `speak` interrupts whatever is playing; `enqueue`
- * waits for it to finish. Muting is remembered across visits.
+ * waits for it to finish. Both resolve once the word has been heard, or right
+ * away with 'skipped' when muted or when the sound can't play. Muting is
+ * remembered across visits.
  */
 export function useSpeech() {
   const [muted, setMuted] = useState(() => localStorage.getItem(MUTED_KEY) === 'true')
 
   const speak = useCallback(
-    (text: string) => {
-      if (muted) return
+    (text: string): Promise<Outcome> => {
+      if (muted) return Promise.resolve('skipped')
       stop()
-      queue = [text]
-      playNext()
+      return new Promise((done) => {
+        queue = [{ text, done }]
+        playNext()
+      })
     },
     [muted],
   )
 
   const enqueue = useCallback(
-    (text: string) => {
-      if (muted) return
-      queue.push(text)
-      // A paused sound never started (blocked, or failed to load): don't wait on it.
-      if (!playing || playing.paused) playNext()
+    (text: string): Promise<Outcome> => {
+      if (muted) return Promise.resolve('skipped')
+      return new Promise((done) => {
+        queue.push({ text, done })
+        // A paused sound never started (blocked, or failed to load): don't wait on it.
+        if (playing?.audio.paused) {
+          const stale = playing
+          playing = null
+          stale.entry.done('skipped')
+        }
+        if (!playing) playNext()
+      })
     },
     [muted],
   )

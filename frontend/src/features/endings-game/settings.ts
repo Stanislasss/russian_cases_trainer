@@ -5,7 +5,11 @@ export interface Settings {
   levels: Level[]
   case: GrammaticalCase
   mode: Mode
+  /** Practice: ms between hearing the correct form and the next word. */
+  nextWordDelay: number
 }
+
+export const NEXT_WORD_DELAYS = [0, 1000, 2000, 3000, 4000, 5000]
 
 /** The level checkboxes, grouped under headings. */
 export const LEVEL_GROUPS: { id: string; levels: Level[] }[] = [
@@ -35,7 +39,12 @@ export function toggleLevel(levels: Level[], level: Level): Level[] {
 }
 
 const KEY = 'endings-game.settings'
-const defaults: Settings = { levels: ['basic_nouns'], case: 'genitive', mode: 'practice' }
+const defaults: Settings = {
+  levels: ['basic_nouns'],
+  case: 'genitive',
+  mode: 'practice',
+  nextWordDelay: 1000,
+}
 const knownLevels = new Set<string>(LEVEL_GROUPS.flatMap((g) => g.levels))
 
 /** The last used settings, ignoring anything stale or tampered with in localStorage. */
@@ -45,10 +54,13 @@ export function loadSettings(): Settings {
     if (!saved) return defaults
     let levels = (saved.levels ?? []).filter((l) => knownLevels.has(l))
     if (levels.some((l) => SOLO_LEVELS.includes(l)) && levels.length > 1) levels = [levels[0]]
+    const delay = saved.nextWordDelay
     return {
       levels: levels.length > 0 ? levels : defaults.levels,
       case: saved.case && CASES.includes(saved.case) ? saved.case : defaults.case,
       mode: saved.mode === 'arcade' ? 'arcade' : 'practice',
+      nextWordDelay:
+        delay !== undefined && NEXT_WORD_DELAYS.includes(delay) ? delay : defaults.nextWordDelay,
     }
   } catch {
     return defaults

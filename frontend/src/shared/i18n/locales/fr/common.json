@@ -127,6 +127,9 @@
     },
     "listen": "Écouter",
     "mute": "Couper la prononciation",
-    "unmute": "Activer la prononciation"
+    "unmute": "Activer la prononciation",
+    "next": "Suivant",
+    "nextWordDelay": "Pause après une bonne réponse",
+    "seconds": "{{count, number}} s"
   }
 }

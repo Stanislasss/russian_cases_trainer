@@ -113,18 +113,38 @@ export function EndingsGamePage() {
     if (attempts.length > 0) postAttempts(attempts).catch(() => {}) // stats only; never block play
   }, [state, loggedIn])
 
-  // Speech. The correct form is spoken first: in practice the next word appears
-  // in the same update, and its own pronunciation waits for the form to finish.
+  // Speech. A correct answer's form is spoken; in practice the next word then
+  // follows after the chosen delay, or at once if the form wasn't heard (muted,
+  // blocked). The latest `speak` is read through a ref so that muting doesn't
+  // cancel the wait below.
   const { speak, enqueue, prefetch } = speech
+  const speakRef = useRef(speak)
+  useEffect(() => {
+    speakRef.current = speak
+  })
   const results = state.phase === 'setup' ? NO_RESULTS : state.results
+  const waitingForNext = state.phase === 'playing' && state.pause === 'next'
   const spokenResults = useRef(0)
   useEffect(() => {
     if (results.length < spokenResults.current) spokenResults.current = 0 // a new game
     if (results.length === spokenResults.current) return
     spokenResults.current = results.length
     const last = results[results.length - 1]
-    if (last.correct) speak(last.item.stressed_form)
-  }, [results, speak])
+    if (!last.correct) return
+
+    // Cleared when the player moves on first (Next, Enter) or leaves the game.
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    void speakRef.current(last.item.stressed_form).then((outcome) => {
+      if (cancelled || !waitingForNext) return
+      if (outcome === 'played') timer = setTimeout(onContinue, game.current.nextWordDelay)
+      else onContinue()
+    })
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [results, waitingForNext, onContinue])
 
   // Practice (the slow mode) says each new word; arcade would be a cacophony.
   const practiceWord =

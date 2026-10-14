@@ -57,7 +57,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (state.paused) {
+      if (state.pause) {
         if (e.key === 'Enter') onContinue()
         return
       }
@@ -69,7 +69,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state.zones, state.paused, target, onAnswer, onContinue])
+  }, [state.zones, state.pause, target, onAnswer, onContinue])
 
   const onDragStart = (e: DragStartEvent) =>
     setDragging(state.words.find((w) => wordId(w.id) === e.active.id) ?? null)
@@ -84,7 +84,8 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
   }
 
   const last = state.results.at(-1)
-  const mistake = state.paused && last && !last.correct && last.chosen !== null ? last : null
+  const mistake =
+    state.pause === 'mistake' && last && !last.correct && last.chosen !== null ? last : null
 
   return (
     <DndContext
@@ -136,7 +137,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
             className={`relative rounded-lg border border-slate-200 bg-white ${
               state.mode === 'arcade'
                 ? 'h-[45vh] overflow-hidden'
-                : 'flex min-h-40 items-center justify-center'
+                : 'flex min-h-40 flex-col items-center justify-center gap-3'
             }`}
           >
             {state.words.map((word) => (
@@ -150,6 +151,21 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
                 onListen={speech.muted ? undefined : () => speech.speak(word.item.stressed_lemma)}
               />
             ))}
+            {/* While paused, the word just answered stays in view (not draggable). */}
+            {state.pause && last && (
+              <CardFace
+                word={{ id: 0, item: last.item, spawnedAt: 0, duration: Infinity }}
+                selected={false}
+                answered
+                onListen={speech.muted ? undefined : () => speech.speak(last.item.stressed_lemma)}
+              />
+            )}
+            {/* Waiting after a correct answer: the next word comes by itself, or now. */}
+            {state.pause === 'next' && (
+              <Button variant="ghost" onClick={onContinue}>
+                {t('game.next')} →
+              </Button>
+            )}
           </div>
 
           <p aria-live="polite" className="min-h-6 text-center text-sm">
@@ -178,7 +194,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
                 label={answerLabel(zone, state.answerKind)}
                 shortcut={i + 1}
                 onClick={() => answer(zone)}
-                disabled={state.paused}
+                disabled={state.pause !== null}
               />
             ))}
           </div>
@@ -276,13 +292,15 @@ interface CardFaceProps {
   selected: boolean
   /** Shows a 🔊 button; absent when muted and on the copy being dragged. */
   onListen?: () => void
+  /** Already answered: shown for reference, can't be dragged. */
+  answered?: boolean
 }
 
-function CardFace({ word, selected, onListen }: CardFaceProps) {
+function CardFace({ word, selected, onListen, answered }: CardFaceProps) {
   const { t, i18n } = useTranslation()
   return (
     <div
-      className={`max-w-xs cursor-grab rounded-lg border-2 bg-white px-4 py-2 text-center shadow-sm ${
+      className={`max-w-xs ${answered ? 'cursor-default' : 'cursor-grab'} rounded-lg border-2 bg-white px-4 py-2 text-center shadow-sm ${
         selected ? 'border-sky-500 ring-2 ring-sky-200' : 'border-slate-300'
       }`}
     >

@@ -127,6 +127,9 @@
     },
     "listen": "Listen",
     "mute": "Mute pronunciation",
-    "unmute": "Turn pronunciation on"
+    "unmute": "Turn pronunciation on",
+    "next": "Next",
+    "nextWordDelay": "Pause after a correct answer",
+    "seconds": "{{count, number}} s"
   }
 }

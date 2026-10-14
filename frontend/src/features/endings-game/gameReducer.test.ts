@@ -59,7 +59,7 @@ describe('practice', () => {
     for (let i = 0; i < PRACTICE_ROUND; i++) {
       state = answerFirst(state, i % 2 === 0 ? 'ой' : 'ом')
       // A mistake pauses the round until the player moves on.
-      if (state.phase === 'playing' && state.paused) {
+      if (state.phase === 'playing' && state.pause) {
         state = gameReducer(state, { type: 'continue', now: 0 })
       }
     }
@@ -92,24 +92,31 @@ describe('practice', () => {
 
   test('a mistake pauses until the player continues', () => {
     let state = answerFirst(run([start('practice', items(5))]), 'ом')
-    expect(playing(state)).toMatchObject({ paused: true, words: [] })
+    expect(playing(state)).toMatchObject({ pause: 'mistake', words: [] })
     // Answers while paused go nowhere: there's no word on the board.
     state = gameReducer(state, { type: 'continue', now: 5 })
-    expect(playing(state).paused).toBe(false)
+    expect(playing(state).pause).toBeNull()
     expect(playing(state).words).toHaveLength(1)
   })
 
-  test('a correct answer does not pause', () => {
-    const state = answerFirst(run([start('practice', items(5))]), 'ой')
-    expect(playing(state)).toMatchObject({ paused: false })
+  test('a correct answer waits for the next word too', () => {
+    let state = answerFirst(run([start('practice', items(5))]), 'ой')
+    expect(playing(state)).toMatchObject({ pause: 'next', words: [] })
+    state = gameReducer(state, { type: 'continue', now: 5 })
+    expect(playing(state).pause).toBeNull()
     expect(playing(state).words).toHaveLength(1)
+  })
+
+  test('continuing without a pause changes nothing', () => {
+    const state = run([start('practice', items(5))])
+    expect(gameReducer(state, { type: 'continue', now: 5 })).toBe(state)
   })
 })
 
 describe('arcade', () => {
   test('mistakes never pause', () => {
     const state = answerFirst(run([start('arcade', items(20))]), 'ом', 1)
-    expect(playing(state)).toMatchObject({ paused: false })
+    expect(playing(state)).toMatchObject({ pause: null })
     expect(playing(state).words).toHaveLength(1)
   })
 

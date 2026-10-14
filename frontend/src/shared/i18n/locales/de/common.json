@@ -127,6 +127,9 @@
     },
     "listen": "Anhören",
     "mute": "Aussprache stumm schalten",
-    "unmute": "Aussprache einschalten"
+    "unmute": "Aussprache einschalten",
+    "next": "Weiter",
+    "nextWordDelay": "Pause nach einer richtigen Antwort",
+    "seconds": "{{count, number}} s"
   }
 }

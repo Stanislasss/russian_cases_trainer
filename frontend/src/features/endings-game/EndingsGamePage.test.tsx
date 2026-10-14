@@ -30,8 +30,14 @@ const stol: Item = {
 }
 const batch = () => json(200, { answer_kind: 'ending', zones: ['ом', 'ой'], items: [kniga, stol] })
 
+/** Practice settings with this pause after a correct answer (0: tests don't wait). */
+function useDelay(ms: number) {
+  localStorage.setItem('endings-game.settings', JSON.stringify({ nextWordDelay: ms }))
+}
+
 beforeEach(async () => {
   localStorage.clear()
+  useDelay(0)
   mockAudio() // jsdom has no audio playback
   await i18n.changeLanguage('en')
 })
@@ -48,7 +54,7 @@ async function playPracticeRound() {
   fireEvent.click(screen.getByRole('button', { name: '-ой' }))
   expect(await screen.findByText('✓ кни́гой')).toBeInTheDocument()
 
-  expect(screen.getByText('стол')).toBeInTheDocument()
+  expect(await screen.findByText('стол')).toBeInTheDocument() // after the form was heard
   fireEvent.click(screen.getByRole('button', { name: '-ой' }))
 
   // The pool had two words, so the round ends early.
@@ -138,6 +144,7 @@ test('remembers the last settings', async () => {
     levels: ['basic_nouns', 'intermediate_nouns'],
     case: 'dative',
     mode: 'practice',
+    nextWordDelay: 0,
   })
 })
 
@@ -279,6 +286,7 @@ describe('explanations', () => {
       within(panel).getByText(/-ом is used for: Masculine nouns ending in a consonant/),
     ).toBeInTheDocument()
     expect(screen.queryByText('окно́')).not.toBeInTheDocument() // the next word waits
+    expect(screen.getByText('кни́га')).toBeInTheDocument() // the word answered stays in view
     expect(screen.getByRole('button', { name: '-ой' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
@@ -309,5 +317,56 @@ describe('explanations', () => {
     mockApi({})
     renderAt('/play/endings?case=dative')
     expect(screen.getByLabelText('Dative')).toBeChecked()
+  })
+})
+
+describe('pause after a correct answer', () => {
+  async function answerFirstCorrectly() {
+    mockApi({ 'POST /api/games/endings/batch': batch })
+    renderAt('/play/endings')
+    fireEvent.click(screen.getByLabelText('Instrumental'))
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    await screen.findByText('кни́га')
+    fireEvent.click(screen.getByRole('button', { name: '-ой' })) // correct
+  }
+
+  test('the next word comes after the form has been heard, plus the delay', async () => {
+    useDelay(1000)
+    const spoken = mockAudio()
+    await answerFirstCorrectly()
+
+    await waitFor(() => expect(spoken).toEqual(['кни́га', 'кни́гой']))
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(screen.queryByText('стол')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '-ом' })).toBeDisabled()
+
+    expect(await screen.findByText('стол', {}, { timeout: 2000 })).toBeInTheDocument()
+    await waitFor(() => expect(spoken).toEqual(['кни́га', 'кни́гой', 'стол']))
+  })
+
+  test('Next skips the wait', async () => {
+    useDelay(3000)
+    await answerFirstCorrectly()
+    fireEvent.click(await screen.findByRole('button', { name: 'Next →' }))
+    expect(screen.getByText('стол')).toBeInTheDocument()
+  })
+
+  test('without sound there is no pause', async () => {
+    useDelay(3000)
+    localStorage.setItem('speech.muted', 'true')
+    await answerFirstCorrectly()
+    expect(await screen.findByText('стол')).toBeInTheDocument()
+  })
+
+  test('the delay is a practice setting', () => {
+    mockApi({})
+    renderAt('/play/endings')
+    const select = screen.getByLabelText('Pause after a correct answer')
+    expect(select).toHaveValue('0')
+    fireEvent.change(select, { target: { value: '2000' } })
+    expect(select).toHaveValue('2000')
+
+    fireEvent.click(screen.getByLabelText(/Arcade/))
+    expect(screen.queryByLabelText('Pause after a correct answer')).not.toBeInTheDocument()
   })
 })

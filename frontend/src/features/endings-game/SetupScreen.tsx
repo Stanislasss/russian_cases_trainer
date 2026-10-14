@@ -1,7 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../shared/ui/Button'
 import type { Mode } from './gameReducer'
-import { CASES, LEVEL_GROUPS, type Settings, SOLO_LEVELS, toggleLevel } from './settings'
+import {
+  CASES,
+  LEVEL_GROUPS,
+  NEXT_WORD_DELAYS,
+  type Settings,
+  SOLO_LEVELS,
+  toggleLevel,
+} from './settings'
 
 interface Props {
   settings: Settings
@@ -101,6 +108,23 @@ export function SetupScreen({ settings, onChange, onStart, starting, error }: Pr
           ))}
         </div>
       </fieldset>
+
+      {settings.mode === 'practice' && (
+        <label className="flex items-center justify-between gap-3">
+          <span className="font-semibold">{t('game.nextWordDelay')}</span>
+          <select
+            className="rounded border border-slate-300 bg-white px-2 py-1"
+            value={settings.nextWordDelay}
+            onChange={(e) => onChange({ ...settings, nextWordDelay: Number(e.target.value) })}
+          >
+            {NEXT_WORD_DELAYS.map((ms) => (
+              <option key={ms} value={ms}>
+                {t('game.seconds', { count: ms / 1000 })}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-red-600">

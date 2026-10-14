@@ -42,9 +42,14 @@ export interface Playing {
   lives: number
   nextId: number
   nextSpawnAt: number
-  /** Practice only: after a mistake, the next word waits until the rule has been read. */
-  paused: boolean
+  /**
+   * Practice only: the next word waits. After a mistake until the rule has been
+   * read; after a correct answer until the form has been heard (plus a short pause).
+   */
+  pause: Pause
 }
+
+export type Pause = null | 'mistake' | 'next'
 
 export interface Finished {
   phase: 'summary'
@@ -107,7 +112,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         lives: ARCADE_LIVES,
         nextId: 1,
         nextSpawnAt: action.now,
-        paused: false,
+        pause: null,
       }
       return spawn(playing, action.now)
     }
@@ -122,7 +127,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const correct = isCorrect(word.item, action.ending)
       const next = record(state, word, action.ending, correct)
       if (next.phase !== 'playing') return next
-      if (!correct && next.mode === 'practice') return { ...next, paused: true }
+      if (next.mode === 'practice') return { ...next, pause: correct ? 'next' : 'mistake' }
       return spawn(next, action.now)
     }
     case 'tick': {
@@ -136,8 +141,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return next.phase === 'playing' ? spawn(next, action.now) : next
     }
     case 'continue':
-      return state.phase === 'playing' && state.paused
-        ? spawn({ ...state, paused: false }, action.now)
+      return state.phase === 'playing' && state.pause
+        ? spawn({ ...state, pause: null }, action.now)
         : state
     case 'quit':
       return state.phase === 'playing' ? finish(state) : state
