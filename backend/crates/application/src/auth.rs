@@ -31,6 +31,7 @@ impl From<RepoError> for AuthError {
     fn from(err: RepoError) -> Self {
         match err {
             RepoError::Conflict => AuthError::EmailTaken,
+            e @ RepoError::InvalidReference => AuthError::Internal(e.into()),
             RepoError::Other(e) => AuthError::Internal(e),
         }
     }

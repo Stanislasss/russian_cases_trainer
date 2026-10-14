@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '../../shared/ui/Button'
-import { useLogout, useSession } from './session'
+import { useLogout, useSession } from '../../shared/session/session'
 
 export function UserMenu() {
   const { t } = useTranslation()

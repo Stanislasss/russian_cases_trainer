@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, useLocation } from 'react-router'
-import { useSession } from './session'
+import { useSession } from '../../shared/session/session'
 
 /** Route guard: renders child routes for logged-in users, otherwise redirects to login. */
 export function RequireAuth() {

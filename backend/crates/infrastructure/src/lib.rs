@@ -1,5 +1,6 @@
 //! Adapters for the application ports: Postgres repositories, password hashing, etc.
 
+pub mod games;
 pub mod lexicon;
 pub mod security;
 pub mod users;

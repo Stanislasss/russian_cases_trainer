@@ -2,4 +2,5 @@
 //! Depends only on `domain`; adapters live in `infrastructure` and `api`.
 
 pub mod auth;
+pub mod game;
 pub mod ports;

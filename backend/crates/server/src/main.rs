@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use application::auth::AuthService;
+use application::game::EndingsGame;
 use clap::{Parser, Subcommand};
+use infrastructure::games::{PgAttemptRepository, PgExerciseRepository};
 use infrastructure::security::{Argon2Hasher, OsTokenGenerator, SystemClock};
 use infrastructure::users::{PgSessionRepository, PgUserRepository};
 use tracing_subscriber::EnvFilter;
@@ -62,10 +64,14 @@ async fn main() -> anyhow::Result<()> {
             let state = api::AppState {
                 auth: AuthService::new(
                     Arc::new(PgUserRepository::new(pool.clone())),
-                    Arc::new(PgSessionRepository::new(pool)),
+                    Arc::new(PgSessionRepository::new(pool.clone())),
                     Arc::new(Argon2Hasher),
                     Arc::new(SystemClock),
                     Arc::new(OsTokenGenerator),
+                ),
+                endings: EndingsGame::new(
+                    Arc::new(PgExerciseRepository::new(pool.clone())),
+                    Arc::new(PgAttemptRepository::new(pool)),
                 ),
                 cookie_secure,
             };

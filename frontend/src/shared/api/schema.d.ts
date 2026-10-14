@@ -55,6 +55,40 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/games/endings/attempts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Records the logged-in player's answers. */
+    post: operations['endings_attempts']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/games/endings/batch': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** A batch of random words for the endings game, with their answers. */
+    post: operations['endings_batch']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/health': {
     parameters: {
       query?: never
@@ -92,6 +126,50 @@ export interface paths {
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    EndingsAttempt: {
+      /** @description The ending the player chose. */
+      answer: string
+      case: components['schemas']['GrammaticalCase']
+      correct: boolean
+      /** Format: int64 */
+      lexeme_id: number
+      number: components['schemas']['GrammaticalNumber']
+    }
+    EndingsAttempts: {
+      /** @description 1–100 answers. */
+      attempts: components['schemas']['EndingsAttempt'][]
+    }
+    EndingsBatch: {
+      items: components['schemas']['EndingsItem'][]
+      /**
+       * @description Ending zones for the board, in paradigm order; "" is the zero ending.
+       *     Identical for every batch with the same levels and case.
+       */
+      zones: string[]
+    }
+    EndingsBatchRequest: {
+      case: components['schemas']['GrammaticalCase']
+      /** @description 1–50, default 10. */
+      count?: number | null
+      /** @description Words are drawn from any of these levels. */
+      levels: components['schemas']['Level'][]
+      /** @description Language of the translations (falls back to English). */
+      locale: components['schemas']['UiLocale']
+    }
+    EndingsItem: {
+      /** @description All endings that count as correct (alternative forms such as книгою). */
+      accepted: string[]
+      /** @description Ending of the target form; always one of the zones. */
+      answer: string
+      /** Format: int64 */
+      lexeme_id: number
+      number: components['schemas']['GrammaticalNumber']
+      /** @description The full target form with stress mark, for feedback. */
+      stressed_form: string
+      /** @description Dictionary form with stress mark (U+0301). */
+      stressed_lemma: string
+      translation?: string | null
+    }
     /** @enum {string} */
     ErrorCode:
       | 'invalid_email'
@@ -100,10 +178,21 @@ export interface components {
       | 'email_taken'
       | 'invalid_credentials'
       | 'unauthenticated'
+      | 'invalid_game_request'
       | 'internal'
+    /** @enum {string} */
+    GrammaticalCase:
+      'nominative' | 'genitive' | 'dative' | 'accusative' | 'instrumental' | 'prepositional'
+    /** @enum {string} */
+    GrammaticalNumber: 'singular' | 'plural'
     Health: {
       status: string
     }
+    /**
+     * @description A difficulty level of the games.
+     * @enum {string}
+     */
+    Level: 'basic_nouns' | 'intermediate_nouns' | 'advanced_nouns'
     LoginRequest: {
       email: string
       password: string
@@ -220,6 +309,77 @@ export interface operations {
         }
       }
       /** @description invalid input */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  endings_attempts: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EndingsAttempts']
+      }
+    }
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description not logged in */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+      /** @description too many/few attempts or unknown word */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  endings_batch: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EndingsBatchRequest']
+      }
+    }
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EndingsBatch']
+        }
+      }
+      /** @description no level selected or bad count */
       422: {
         headers: {
           [name: string]: unknown

@@ -1,1 +1,16 @@
 @import 'tailwindcss';
+
+@theme {
+  /* Arcade words fall from just above the board to just below it; the
+     duration is set per word inline. */
+  --animate-fall: fall 1s linear forwards;
+
+  @keyframes fall {
+    from {
+      top: -4rem;
+    }
+    to {
+      top: 100%;
+    }
+  }
+}

@@ -2,9 +2,12 @@
 //! Handlers only talk to the application use cases.
 
 pub mod auth;
+pub mod dto;
 pub mod error;
+pub mod games;
 
 use application::auth::AuthService;
+use application::game::EndingsGame;
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
 use tower_http::{compression::CompressionLayer, trace::TraceLayer};
@@ -13,6 +16,7 @@ use utoipa::{OpenApi, ToSchema};
 #[derive(Clone)]
 pub struct AppState {
     pub auth: AuthService,
+    pub endings: EndingsGame,
     /// Set the `Secure` flag on cookies; enable when served over HTTPS.
     pub cookie_secure: bool,
 }
@@ -20,7 +24,15 @@ pub struct AppState {
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Russian Cases Trainer API"),
-    paths(health, auth::register, auth::login, auth::logout, auth::me),
+    paths(
+        health,
+        auth::register,
+        auth::login,
+        auth::logout,
+        auth::me,
+        games::endings_batch,
+        games::endings_attempts,
+    ),
     components(schemas(Health, error::Problem, error::ErrorCode))
 )]
 pub struct ApiDoc;
@@ -35,6 +47,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/openapi.json", get(|| async { Json(openapi()) }))
         .merge(auth::routes())
+        .merge(games::routes())
         .with_state(state)
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())

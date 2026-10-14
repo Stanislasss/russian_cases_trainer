@@ -7,7 +7,7 @@ import { ApiError } from '../../shared/api/client'
 import { Button } from '../../shared/ui/Button'
 import { TextField } from '../../shared/ui/TextField'
 import { safeNext } from './safeNext'
-import { useLogin } from './session'
+import { useLogin } from '../../shared/session/session'
 
 const schema = z.object({
   email: z.email({ error: 'invalid_email' }),

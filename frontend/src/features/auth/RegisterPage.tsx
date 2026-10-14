@@ -8,7 +8,7 @@ import { ApiError, type ErrorCode } from '../../shared/api/client'
 import { languages, type Language } from '../../shared/i18n'
 import { Button } from '../../shared/ui/Button'
 import { TextField } from '../../shared/ui/TextField'
-import { useRegister } from './session'
+import { useRegister } from '../../shared/session/session'
 
 // Mirrors the backend's rules (domain::user) so most mistakes are caught before submitting.
 const schema = z.object({

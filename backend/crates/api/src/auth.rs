@@ -14,6 +14,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::dto::UiLocale;
 use crate::error::{AppError, Problem};
 
 pub const SESSION_COOKIE: &str = "session";
@@ -24,34 +25,6 @@ pub fn routes() -> Router<AppState> {
         .route("/api/auth/login", post(login))
         .route("/api/auth/logout", post(logout))
         .route("/api/me", get(me))
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum UiLocale {
-    En,
-    Fr,
-    Ru,
-}
-
-impl From<UiLocale> for Locale {
-    fn from(locale: UiLocale) -> Self {
-        match locale {
-            UiLocale::En => Locale::En,
-            UiLocale::Fr => Locale::Fr,
-            UiLocale::Ru => Locale::Ru,
-        }
-    }
-}
-
-impl From<Locale> for UiLocale {
-    fn from(locale: Locale) -> Self {
-        match locale {
-            Locale::En => UiLocale::En,
-            Locale::Fr => UiLocale::Fr,
-            Locale::Ru => UiLocale::Ru,
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

@@ -10,9 +10,14 @@ export function Layout() {
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link to="/" className="text-lg font-semibold">
-            {t('app.title')}
-          </Link>
+          <nav className="flex items-center gap-6">
+            <Link to="/" className="text-lg font-semibold">
+              {t('app.title')}
+            </Link>
+            <Link to="/play/endings" className="text-sm hover:underline">
+              {t('nav.play')}
+            </Link>
+          </nav>
           <div className="flex items-center gap-4">
             <UserMenu />
             <LanguageSwitcher />

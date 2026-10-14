@@ -1,20 +1,17 @@
-use std::{fmt, str::FromStr};
-
-use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("unknown {kind} `{value}`")]
 pub struct ParseEnumError {
-    kind: &'static str,
-    value: String,
+    pub(crate) kind: &'static str,
+    pub(crate) value: String,
 }
 
 /// Defines a fieldless enum whose string form (serde, `Display`, `FromStr`, `as_str`)
 /// is the same snake_case name, which is also what the database stores.
+/// Paths are fully qualified so other modules can use it (`use crate::grammar::string_enum`).
 macro_rules! string_enum {
     ($(#[$meta:meta])* $name:ident, $kind:literal { $($variant:ident => $text:literal),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         pub enum $name {
             $(#[serde(rename = $text)] $variant),+
         }
@@ -29,24 +26,25 @@ macro_rules! string_enum {
             }
         }
 
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl ::std::fmt::Display for $name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.write_str(self.as_str())
             }
         }
 
-        impl FromStr for $name {
-            type Err = ParseEnumError;
+        impl ::std::str::FromStr for $name {
+            type Err = $crate::grammar::ParseEnumError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
                     $($text => Ok($name::$variant),)+
-                    _ => Err(ParseEnumError { kind: $kind, value: s.to_owned() }),
+                    _ => Err($crate::grammar::ParseEnumError { kind: $kind, value: s.to_owned() }),
                 }
             }
         }
     };
 }
+pub(crate) use string_enum;
 
 string_enum! {
     /// The six Russian grammatical cases.

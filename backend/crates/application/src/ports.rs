@@ -13,6 +13,9 @@ pub enum RepoError {
     /// A uniqueness constraint was violated (e.g. the email is already registered).
     #[error("already exists")]
     Conflict,
+    /// A referenced row doesn't exist (e.g. an unknown lexeme id).
+    #[error("refers to something that doesn't exist")]
+    InvalidReference,
     #[error(transparent)]
     Other(BoxError),
 }

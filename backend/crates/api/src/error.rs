@@ -2,6 +2,7 @@
 //! frontend to pick a translated message; `title` is a fallback in English.
 
 use application::auth::AuthError;
+use application::game::GameError;
 use axum::Json;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
@@ -13,6 +14,8 @@ use utoipa::ToSchema;
 pub enum AppError {
     #[error(transparent)]
     Auth(#[from] AuthError),
+    #[error(transparent)]
+    Game(#[from] GameError),
     #[error("not logged in")]
     Unauthenticated,
 }
@@ -36,6 +39,7 @@ pub enum ErrorCode {
     EmailTaken,
     InvalidCredentials,
     Unauthenticated,
+    InvalidGameRequest,
     Internal,
 }
 
@@ -56,6 +60,8 @@ impl AppError {
                 (StatusCode::UNAUTHORIZED, InvalidCredentials)
             }
             AppError::Unauthenticated => (StatusCode::UNAUTHORIZED, Unauthenticated),
+            AppError::Game(GameError::Internal(_)) => (StatusCode::INTERNAL_SERVER_ERROR, Internal),
+            AppError::Game(_) => (StatusCode::UNPROCESSABLE_ENTITY, InvalidGameRequest),
             AppError::Auth(AuthError::Internal(_)) => (StatusCode::INTERNAL_SERVER_ERROR, Internal),
         }
     }

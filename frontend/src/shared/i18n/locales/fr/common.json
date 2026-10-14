@@ -4,13 +4,20 @@
     "language": "Langue",
     "attribution": "Données lexicales :"
   },
-  "common": { "loading": "Chargement…" },
-  "languages": { "en": "English", "fr": "Français", "ru": "Русский" },
+  "common": {
+    "loading": "Chargement…"
+  },
+  "languages": {
+    "en": "English",
+    "fr": "Français",
+    "ru": "Русский"
+  },
   "home": {
     "heading": "Maîtrisez les six cas du russe",
     "intro": "Étudiez les règles de déclinaison cas par cas, puis entraînez-vous avec des jeux.",
     "backend": "Serveur",
-    "offline": "injoignable"
+    "offline": "injoignable",
+    "play": "Jouer : glisser les terminaisons"
   },
   "auth": {
     "email": "E-mail",
@@ -27,7 +34,9 @@
       "submit": "Créer le compte",
       "haveAccount": "Déjà un compte ?"
     },
-    "account": { "title": "Votre compte" },
+    "account": {
+      "title": "Votre compte"
+    },
     "errors": {
       "required": "Champ obligatoire.",
       "invalid_email": "Saisissez une adresse e-mail valide.",
@@ -37,6 +46,68 @@
       "invalid_credentials": "E-mail ou mot de passe incorrect.",
       "unauthenticated": "Veuillez vous connecter.",
       "internal": "Une erreur s'est produite. Veuillez réessayer."
+    }
+  },
+  "nav": {
+    "play": "Jouer"
+  },
+  "cases": {
+    "nominative": "Nominatif",
+    "genitive": "Génitif",
+    "dative": "Datif",
+    "accusative": "Accusatif",
+    "instrumental": "Instrumental",
+    "prepositional": "Prépositionnel"
+  },
+  "game": {
+    "title": "Terminaisons",
+    "subtitle": "Glissez chaque mot sur la terminaison qu’il prend au cas choisi.",
+    "levels": "Niveaux",
+    "comingSoon": "bientôt",
+    "level": {
+      "basic_nouns": "Noms de base (300 plus fréquents, singulier)",
+      "intermediate_nouns": "Noms intermédiaires (2 000 plus fréquents, singulier et pluriel)",
+      "advanced_nouns": "Noms avancés (10 000 plus fréquents)",
+      "basic_adjectives": "Adjectifs de base",
+      "intermediate_adjectives": "Adjectifs intermédiaires"
+    },
+    "case": "Cas",
+    "mode": "Mode",
+    "modes": {
+      "practice": "Entraînement",
+      "practiceHint": "Séries de 10, sans chrono.",
+      "arcade": "Arcade",
+      "arcadeHint": "Les mots tombent de plus en plus vite. 3 vies."
+    },
+    "start": "Commencer",
+    "empty": "Aucun mot ne correspond. Au nominatif, seul le pluriel est demandé : ajoutez un niveau avec le pluriel.",
+    "failed": "Impossible de charger les mots. Veuillez réessayer.",
+    "progress": "{{done}} / {{total}}",
+    "score": "Score",
+    "lives_one": "{{count}} vie restante",
+    "lives_other": "{{count}} vies restantes",
+    "streak": "{{count}} d’affilée",
+    "quit": "Quitter",
+    "howTo": "Glissez un mot sur sa terminaison, ou touchez le mot puis la terminaison. Les touches 1 à 9 marchent aussi.",
+    "zeroEnding": "sans terminaison",
+    "numbers": {
+      "singular": "sg.",
+      "plural": "pl."
+    },
+    "feedback": {
+      "wrong": "✗ {{chosen}} — c’est {{form}}",
+      "missed": "⌛ Trop lent — {{form}}"
+    },
+    "summary": {
+      "title": "Résultats",
+      "correct": "{{correct}} sur {{total}} corrects",
+      "mistakes": "À revoir",
+      "missed": "trop lent",
+      "perfect": "Aucune erreur. Bravo !",
+      "saved": "Vos résultats sont enregistrés.",
+      "loginToSave": "pour suivre vos progrès.",
+      "again": "Rejouer",
+      "settings": "Changer les réglages"
     }
   }
 }

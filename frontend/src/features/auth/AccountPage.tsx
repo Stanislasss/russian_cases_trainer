@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { useSession } from './session'
+import { useSession } from '../../shared/session/session'
 
 /** Rendered behind `RequireAuth`, so the session is always loaded here. */
 export function AccountPage() {

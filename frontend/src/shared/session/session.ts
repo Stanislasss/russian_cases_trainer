@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, ApiError, unwrap, type Schemas } from '../../shared/api/client'
-import i18n from '../../shared/i18n'
+import { api, ApiError, unwrap, type Schemas } from '../api/client'
+import i18n from '../i18n'
 
 export type User = Schemas['UserDto']
 

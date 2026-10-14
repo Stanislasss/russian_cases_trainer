@@ -4,13 +4,20 @@
     "language": "Language",
     "attribution": "Word data from"
   },
-  "common": { "loading": "Loading…" },
-  "languages": { "en": "English", "fr": "Français", "ru": "Русский" },
+  "common": {
+    "loading": "Loading…"
+  },
+  "languages": {
+    "en": "English",
+    "fr": "Français",
+    "ru": "Русский"
+  },
   "home": {
     "heading": "Master the six Russian cases",
     "intro": "Study the declension rules case by case, then practise them with games.",
     "backend": "Backend",
-    "offline": "unreachable"
+    "offline": "unreachable",
+    "play": "Play: drag the endings"
   },
   "auth": {
     "email": "Email",
@@ -27,7 +34,9 @@
       "submit": "Create account",
       "haveAccount": "Already have an account?"
     },
-    "account": { "title": "Your account" },
+    "account": {
+      "title": "Your account"
+    },
     "errors": {
       "required": "Required.",
       "invalid_email": "Enter a valid email address.",
@@ -37,6 +46,68 @@
       "invalid_credentials": "Wrong email or password.",
       "unauthenticated": "Please log in.",
       "internal": "Something went wrong. Please try again."
+    }
+  },
+  "nav": {
+    "play": "Play"
+  },
+  "cases": {
+    "nominative": "Nominative",
+    "genitive": "Genitive",
+    "dative": "Dative",
+    "accusative": "Accusative",
+    "instrumental": "Instrumental",
+    "prepositional": "Prepositional"
+  },
+  "game": {
+    "title": "Endings",
+    "subtitle": "Drag each word onto the ending it takes in the chosen case.",
+    "levels": "Levels",
+    "comingSoon": "coming soon",
+    "level": {
+      "basic_nouns": "Basic nouns (300 most common, singular)",
+      "intermediate_nouns": "Intermediate nouns (2,000 most common, singular & plural)",
+      "advanced_nouns": "Advanced nouns (10,000 most common)",
+      "basic_adjectives": "Basic adjectives",
+      "intermediate_adjectives": "Intermediate adjectives"
+    },
+    "case": "Case",
+    "mode": "Mode",
+    "modes": {
+      "practice": "Practice",
+      "practiceHint": "Rounds of 10, no timer.",
+      "arcade": "Arcade",
+      "arcadeHint": "Words fall faster and faster. 3 lives."
+    },
+    "start": "Start",
+    "empty": "No words match these settings. In the nominative only plurals are asked, so add a level with plurals.",
+    "failed": "Couldn't load words. Please try again.",
+    "progress": "{{done}} / {{total}}",
+    "score": "Score",
+    "lives_one": "{{count}} life left",
+    "lives_other": "{{count}} lives left",
+    "streak": "{{count}} in a row",
+    "quit": "Quit",
+    "howTo": "Drag a word onto its ending, or tap the word and then the ending. Keys 1–9 work too.",
+    "zeroEnding": "no ending",
+    "numbers": {
+      "singular": "sg.",
+      "plural": "pl."
+    },
+    "feedback": {
+      "wrong": "✗ {{chosen}} — it is {{form}}",
+      "missed": "⌛ Too slow — {{form}}"
+    },
+    "summary": {
+      "title": "Results",
+      "correct": "{{correct}} of {{total}} correct",
+      "mistakes": "To review",
+      "missed": "too slow",
+      "perfect": "No mistakes. Well done!",
+      "saved": "Your results are saved.",
+      "loginToSave": "to keep track of your progress.",
+      "again": "Play again",
+      "settings": "Change settings"
     }
   }
 }
