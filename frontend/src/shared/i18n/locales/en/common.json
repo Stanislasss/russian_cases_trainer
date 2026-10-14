@@ -1,0 +1,14 @@
+{
+  "app": {
+    "title": "Russian Cases Trainer",
+    "language": "Language",
+    "attribution": "Word data from"
+  },
+  "languages": { "en": "English", "fr": "Français", "ru": "Русский" },
+  "home": {
+    "heading": "Master the six Russian cases",
+    "intro": "Study the declension rules case by case, then practise them with games.",
+    "backend": "Backend",
+    "offline": "unreachable"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "app": {
+    "title": "Entraîneur de cas russes",
+    "language": "Langue",
+    "attribution": "Données lexicales :"
+  },
+  "languages": { "en": "English", "fr": "Français", "ru": "Русский" },
+  "home": {
+    "heading": "Maîtrisez les six cas du russe",
+    "intro": "Étudiez les règles de déclinaison cas par cas, puis entraînez-vous avec des jeux.",
+    "backend": "Serveur",
+    "offline": "injoignable"
+  }
+}
