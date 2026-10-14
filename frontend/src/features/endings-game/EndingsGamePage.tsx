@@ -91,6 +91,7 @@ export function EndingsGamePage() {
 
   // Arcade never runs out of words.
   const refill = needsRefill(state)
+  const refills = state.phase === 'playing' ? state.refills : 0
   useEffect(() => {
     if (!refill || refilling.current) return
     refilling.current = true
@@ -99,7 +100,7 @@ export function EndingsGamePage() {
       .then((batch) => dispatch({ type: 'refill', items: batch.items }))
       .catch(() => {}) // the game goes on with what's left
       .finally(() => (refilling.current = false))
-  }, [refill])
+  }, [refill, refills])
 
   // Save answers for logged-in players. Words that fell off the board aren't
   // answers, so they aren't recorded.

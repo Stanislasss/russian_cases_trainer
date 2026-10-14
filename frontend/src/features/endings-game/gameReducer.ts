@@ -47,6 +47,8 @@ export interface Playing {
    * read; after a correct answer until the form has been heard (plus a short pause).
    */
   pause: Pause
+  /** Arcade: batches received so far, so a refill that left the queue short asks again. */
+  refills: number
 }
 
 export type Pause = null | 'mistake' | 'next'
@@ -113,13 +115,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         nextId: 1,
         nextSpawnAt: action.now,
         pause: null,
+        refills: 0,
       }
       return spawn(playing, action.now)
     }
-    case 'refill':
-      return state.phase === 'playing' && state.mode === 'arcade'
-        ? { ...state, queue: [...state.queue, ...action.items] }
-        : state
+    case 'refill': {
+      if (state.phase !== 'playing' || state.mode !== 'arcade') return state
+      // Words not seen yet this game; repeats only once the levels run out of words.
+      const seen = new Set(
+        [
+          ...state.queue,
+          ...state.words.map((w) => w.item),
+          ...state.results.map((r) => r.item),
+        ].map((item) => item.lexeme_id),
+      )
+      const fresh = action.items.filter((item) => !seen.has(item.lexeme_id))
+      return {
+        ...state,
+        queue: [...state.queue, ...(fresh.length > 0 ? fresh : action.items)],
+        refills: state.refills + 1,
+      }
+    }
     case 'answer': {
       if (state.phase !== 'playing') return state
       const word = state.words.find((w) => w.id === action.wordId)

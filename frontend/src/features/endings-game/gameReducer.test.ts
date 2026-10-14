@@ -169,6 +169,19 @@ describe('arcade', () => {
     expect(needsRefill(state)).toBe(false)
   })
 
+  test('refills skip the words already played', () => {
+    let state = run([start('arcade', items(3))])
+    state = gameReducer(state, { type: 'refill', items: [item(2), item(4), item(1)] })
+    expect(playing(state).queue.map((i) => i.lexeme_id)).toEqual([2, 3, 4])
+    expect(playing(state).refills).toBe(1)
+  })
+
+  test('words repeat once the levels have no new ones', () => {
+    let state = run([start('arcade', items(2))])
+    state = gameReducer(state, { type: 'refill', items: items(2) })
+    expect(playing(state).queue.map((i) => i.lexeme_id)).toEqual([2, 1, 2])
+  })
+
   test('gets faster with correct answers', () => {
     expect(arcadePace(10).spawnEvery).toBeLessThan(arcadePace(0).spawnEvery)
     expect(arcadePace(10).fallDuration).toBeLessThan(arcadePace(0).fallDuration)

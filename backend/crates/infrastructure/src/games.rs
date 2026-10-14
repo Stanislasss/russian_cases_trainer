@@ -154,8 +154,14 @@ impl ExerciseRepository for PgExerciseRepository {
         let (pos, ranks, numbers, case, whole) = filter_binds(filter);
         let rows: Vec<Row> = sqlx::query_as(&format!(
             "{ELIGIBLE},
+             -- one form per word, so a batch never asks the same word twice
              picked AS (
-                 SELECT * FROM eligible WHERE answer = ANY($6) ORDER BY random() LIMIT $7
+                 SELECT * FROM (
+                     SELECT DISTINCT ON (lexeme_id) * FROM eligible
+                      WHERE answer = ANY($6)
+                      ORDER BY lexeme_id, random()
+                 ) one_per_word
+                  ORDER BY random() LIMIT $7
              )
              SELECT p.lexeme_id,
                     coalesce(l.stressed_lemma, l.lemma) AS stressed_lemma,
@@ -573,6 +579,30 @@ mod tests {
         assert_eq!(items[0].gender, Some(Gender::Masculine));
         assert_eq!(items[0].animacy, Some(Animacy::Animate));
         assert_eq!(items[0].accepted, ["ого"]); // not the inanimate ый
+    }
+
+    #[sqlx::test(migrator = "crate::MIGRATOR")]
+    async fn a_batch_asks_each_word_once(pool: PgPool) {
+        let slot = |gender| Slot::new(Case::Genitive, Number::Singular).gender(gender);
+        let novy = NewLexeme {
+            forms: vec![
+                NewForm::adjective("новый", "но\u{301}вого", slot(Gender::Masculine), 0),
+                NewForm::adjective("новый", "но\u{301}вого", slot(Gender::Neuter), 0),
+                NewForm::adjective("новый", "но\u{301}вой", slot(Gender::Feminine), 0),
+            ],
+            ..lexeme("новый", PartOfSpeech::Adjective, 1, false)
+        };
+        seed(&pool, &[novy]).await;
+
+        let items = PgExerciseRepository::new(pool)
+            .random_items(
+                &filter(&[LevelId::BasicAdjectives], Case::Genitive),
+                &["ого".into(), "ой".into()],
+                10,
+            )
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1);
     }
 
     #[sqlx::test(migrator = "crate::MIGRATOR")]
