@@ -1,11 +1,12 @@
 # Russian Cases Trainer
 
-A web app for practising the six Russian grammatical cases: browse the declension rules case by case, then drill them with games (e.g. drag the right ending onto a noun stem).
+A web app for practising the six Russian grammatical cases: browse the declension rules case by case, then drill them by dragging each word onto the right ending.
 
 - **Backend:** Rust (axum + sqlx), hexagonal workspace in [`backend/`](backend)
 - **Frontend:** React + TypeScript + Vite in [`frontend/`](frontend)
 - **Database:** PostgreSQL 17
-- **UI languages:** English, French, Russian
+- **UI languages:** English, French, German, Russian
+- **Accounts:** email and password; guests can play, but results are saved only when logged in
 
 ## Getting started
 
@@ -13,13 +14,26 @@ Requires Docker Desktop and [`just`](https://github.com/casey/just).
 
 ```sh
 cp .env.example .env
-just up        # db, migrations, backend (:8080), frontend (:5173)
-just import    # load the noun lexicon and grammar rules
+just up        # db, migrations, backend (:8080), frontend (:5173), tts (:5002)
+just import    # load the words and their translations
 ```
 
 Open http://localhost:5173.
 
-Pronunciations come from the `tts` service, a local [Piper](https://github.com/OHF-Voice/piper1-gpl) server (GPL-3.0) with four Russian voices. Compare them on http://localhost:5002 and set `TTS_VOICE` in `.env` (then `just up`). Audio is cached in the `speech-cache` volume; without the service the game simply has no sound.
+## Endings game
+
+The game (`/play/endings`) shows a word in its dictionary form and the case to put it in; drag it onto the right ending.
+
+- **Levels** (checkboxes): basic, intermediate and advanced nouns; basic and intermediate adjectives; possessive and demonstrative pronouns; surnames. Personal pronouns are played on their own, with whole forms (мной, ему…) instead of endings.
+- **Practice:** one word at a time, read aloud. A wrong answer pauses the game and shows the rule that applies, with the word kept on screen, until you click Continue. After a right answer the correct form is spoken, then the next word comes after a short pause (0–5 s, chosen on the setup screen; Enter or Next skips it).
+- **Arcade:** words fall against the clock; mistakes are explained in the summary.
+- **Translations** follow the UI language: English, German, French, or a Russian definition. English is the fallback when a word has none.
+
+## Pronunciation
+
+Pronunciations come from the `tts` service, a local [Piper](https://github.com/OHF-Voice/piper1-gpl) server (GPL-3.0) with four Russian voices. Compare them on http://localhost:5002 and set `TTS_VOICE` in `.env` (then `just up`). Audio is cached in the `speech-cache` volume; without the service the game simply has no sound. The 🔊 buttons and the automatic reading in Practice can be muted.
+
+## Commands
 
 | Command | What it does |
 |---|---|
@@ -53,7 +67,7 @@ The backend tags every game word with its pattern (`domain::rules::paradigm`), s
 | `infrastructure` | Postgres repositories, password hashing, migrations |
 | `api` | axum routes, DTOs, OpenAPI document |
 | `server` | Binary: config and wiring (`serve`, `migrate`, `print-openapi`) |
-| `importer` | Binary: loads the OpenRussian word lists |
+| `importer` | Binary: loads the OpenRussian word lists, the Wiktionary translations and the hand-written words |
 
 ## Data attribution
 

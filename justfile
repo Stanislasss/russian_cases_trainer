@@ -3,7 +3,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 default:
     @just --list
 
-# Build and start db, migrate, backend and frontend
+# Build and start db, migrate, backend, frontend and tts
 up:
     docker compose up -d --build
 
@@ -17,7 +17,7 @@ logs *args:
 migrate:
     docker compose run --rm migrate
 
-# Download the OpenRussian word lists and load nouns + rules
+# Download the word lists and translations, then load them
 import:
     docker compose --profile tools run --rm --build importer
 
