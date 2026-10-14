@@ -4,11 +4,39 @@
     "language": "Language",
     "attribution": "Word data from"
   },
+  "common": { "loading": "Loading…" },
   "languages": { "en": "English", "fr": "Français", "ru": "Русский" },
   "home": {
     "heading": "Master the six Russian cases",
     "intro": "Study the declension rules case by case, then practise them with games.",
     "backend": "Backend",
     "offline": "unreachable"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Name",
+    "logout": "Log out",
+    "login": {
+      "title": "Log in",
+      "submit": "Log in",
+      "noAccount": "No account yet?"
+    },
+    "register": {
+      "title": "Sign up",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?"
+    },
+    "account": { "title": "Your account" },
+    "errors": {
+      "required": "Required.",
+      "invalid_email": "Enter a valid email address.",
+      "invalid_password": "The password must be 8 to 128 characters long.",
+      "invalid_display_name": "The name must be 1 to 50 characters long.",
+      "email_taken": "This email is already registered.",
+      "invalid_credentials": "Wrong email or password.",
+      "unauthenticated": "Please log in.",
+      "internal": "Something went wrong. Please try again."
+    }
   }
 }

@@ -14,7 +14,7 @@ use crate::stress;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Split {
-    /// Plain spelling (no stress marks) of the stem and ending; `ending` may be empty.
+    /// Plain spelling (no stress marks) of the stem and lowercase ending; `ending` may be empty.
     Regular {
         stem: String,
         ending: String,
@@ -22,8 +22,9 @@ pub enum Split {
     Irregular,
 }
 
-/// Letters that end a noun lemma and are therefore its nominative singular ending.
-const NOMINATIVE_ENDINGS: &[char] = &['а', 'я', 'о', 'е', 'ё', 'ь', 'й'];
+/// Letters that end a noun lemma and are therefore its nominative ending. ы and и
+/// cover plural-only nouns (ножницы, брюки).
+const NOMINATIVE_ENDINGS: &[char] = &['а', 'я', 'о', 'е', 'ё', 'ь', 'й', 'ы', 'и'];
 
 /// Known noun endings per case and number. `""` is the zero ending (стол, книг).
 pub fn noun_endings(case: Case, number: Number) -> &'static [&'static str] {
@@ -46,8 +47,9 @@ pub fn noun_endings(case: Case, number: Number) -> &'static [&'static str] {
 }
 
 /// The part of a noun lemma that stays when it declines: книга → книг, стол → стол.
+/// Stress marks are removed; capitalisation is kept (Москва → Москв).
 pub fn noun_stem(lemma: &str) -> String {
-    let lemma = normalise(lemma);
+    let lemma = plain(lemma);
     match lemma.chars().last() {
         Some(last) if NOMINATIVE_ENDINGS.contains(&last) => {
             lemma[..lemma.len() - last.len_utf8()].to_owned()
@@ -57,24 +59,24 @@ pub fn noun_stem(lemma: &str) -> String {
 }
 
 /// Splits `form` (the `case`/`number` form of the noun `lemma`) into stem + ending.
-/// Both inputs may carry stress marks; the result never does.
+/// Both inputs may carry stress marks; the result never does. Comparison ignores
+/// letter case, but the stem keeps the form's own spelling.
 pub fn split_noun_form(lemma: &str, form: &str, case: Case, number: Number) -> Split {
     let stem: Vec<char> = noun_stem(lemma).chars().collect();
-    let form: Vec<char> = normalise(form).chars().collect();
+    let form: Vec<char> = plain(form).chars().collect();
 
     if stem.is_empty() || form.len() < stem.len() {
         return Split::Irregular;
     }
-    // ё is often written as е, and it alternates within paradigms (жена́ → жёны).
-    let same_stem = stem
-        .iter()
-        .zip(&form)
-        .all(|(&a, &b)| fold_yo(a) == fold_yo(b));
+    let same_stem = stem.iter().zip(&form).all(|(&a, &b)| fold(a) == fold(b));
     if !same_stem {
         return Split::Irregular;
     }
 
-    let ending: String = form[stem.len()..].iter().collect();
+    let ending: String = form[stem.len()..]
+        .iter()
+        .flat_map(|c| c.to_lowercase())
+        .collect();
     if noun_endings(case, number).contains(&ending.as_str()) {
         Split::Regular {
             stem: form[..stem.len()].iter().collect(),
@@ -85,12 +87,17 @@ pub fn split_noun_form(lemma: &str, form: &str, case: Case, number: Number) -> S
     }
 }
 
-fn normalise(word: &str) -> String {
-    stress::strip(word.trim()).to_lowercase()
+fn plain(word: &str) -> String {
+    stress::strip(word.trim())
 }
 
-fn fold_yo(c: char) -> char {
-    if c == 'ё' { 'е' } else { c }
+/// Letter case is ignored, and ё matches е: ё is often written as е, and it
+/// alternates within paradigms (жена́ → жёны).
+fn fold(c: char) -> char {
+    match c.to_lowercase().next().unwrap_or(c) {
+        'ё' => 'е',
+        lower => lower,
+    }
 }
 
 #[cfg(test)]
@@ -114,7 +121,33 @@ mod tests {
         assert_eq!(noun_stem("дверь"), "двер");
         assert_eq!(noun_stem("музей"), "музе");
         assert_eq!(noun_stem("здание"), "здани");
-        assert_eq!(noun_stem("Кни\u{301}га"), "книг");
+        assert_eq!(noun_stem("кни\u{301}га"), "книг");
+        assert_eq!(noun_stem("Москва"), "Москв");
+        assert_eq!(noun_stem("ножницы"), "ножниц");
+    }
+
+    #[test]
+    fn plural_only_nouns() {
+        assert_eq!(
+            split_noun_form("ножницы", "ножницами", Instrumental, Plural),
+            regular("ножниц", "ами")
+        );
+        assert_eq!(
+            split_noun_form("брюки", "брюк", Genitive, Plural),
+            regular("брюк", "")
+        );
+        assert_eq!(
+            split_noun_form("деньги", "денег", Genitive, Plural),
+            Split::Irregular
+        );
+    }
+
+    #[test]
+    fn proper_nouns_keep_their_capital() {
+        assert_eq!(
+            split_noun_form("Москва", "Москвой", Instrumental, Singular),
+            regular("Москв", "ой")
+        );
     }
 
     #[test]

@@ -1,5 +1,9 @@
 //! Adapters for the application ports: Postgres repositories, password hashing, etc.
 
+pub mod lexicon;
+pub mod security;
+pub mod users;
+
 use sqlx::postgres::{PgPool, PgPoolOptions};
 
 /// Migrations embedded at compile time from `backend/migrations`.

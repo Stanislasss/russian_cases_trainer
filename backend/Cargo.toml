@@ -24,11 +24,16 @@ api = { path = "crates/api" }
 
 # external crates
 anyhow = "1"
+argon2 = "0.5"
 async-trait = "0.1"
 axum = "0.8"
+axum-extra = { version = "0.10", features = ["cookie"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
 clap = { version = "4", features = ["derive", "env"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "macros", "migrate", "uuid", "chrono"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
@@ -36,6 +41,7 @@ tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip"]
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
+uuid = { version = "1", features = ["serde", "v4"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

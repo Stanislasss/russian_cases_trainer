@@ -4,11 +4,39 @@
     "language": "Langue",
     "attribution": "Données lexicales :"
   },
+  "common": { "loading": "Chargement…" },
   "languages": { "en": "English", "fr": "Français", "ru": "Русский" },
   "home": {
     "heading": "Maîtrisez les six cas du russe",
     "intro": "Étudiez les règles de déclinaison cas par cas, puis entraînez-vous avec des jeux.",
     "backend": "Serveur",
     "offline": "injoignable"
+  },
+  "auth": {
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "displayName": "Nom",
+    "logout": "Se déconnecter",
+    "login": {
+      "title": "Se connecter",
+      "submit": "Se connecter",
+      "noAccount": "Pas encore de compte ?"
+    },
+    "register": {
+      "title": "S'inscrire",
+      "submit": "Créer le compte",
+      "haveAccount": "Déjà un compte ?"
+    },
+    "account": { "title": "Votre compte" },
+    "errors": {
+      "required": "Champ obligatoire.",
+      "invalid_email": "Saisissez une adresse e-mail valide.",
+      "invalid_password": "Le mot de passe doit comporter entre 8 et 128 caractères.",
+      "invalid_display_name": "Le nom doit comporter entre 1 et 50 caractères.",
+      "email_taken": "Cette adresse e-mail est déjà enregistrée.",
+      "invalid_credentials": "E-mail ou mot de passe incorrect.",
+      "unauthenticated": "Veuillez vous connecter.",
+      "internal": "Une erreur s'est produite. Veuillez réessayer."
+    }
   }
 }

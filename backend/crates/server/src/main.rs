@@ -1,9 +1,13 @@
 //! Composition root: reads config, wires adapters into use cases, runs the HTTP server.
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::Context;
+use application::auth::AuthService;
 use clap::{Parser, Subcommand};
+use infrastructure::security::{Argon2Hasher, OsTokenGenerator, SystemClock};
+use infrastructure::users::{PgSessionRepository, PgUserRepository};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -21,6 +25,9 @@ enum Command {
         database_url: String,
         #[arg(long, env = "BIND_ADDR", default_value = "0.0.0.0:8080")]
         bind_addr: SocketAddr,
+        /// Mark cookies `Secure` (only sent over HTTPS).
+        #[arg(long, env = "COOKIE_SECURE", default_value_t = false, action = clap::ArgAction::Set)]
+        cookie_secure: bool,
     },
     /// Apply pending database migrations and exit.
     Migrate {
@@ -47,13 +54,24 @@ async fn main() -> anyhow::Result<()> {
         Command::Serve {
             database_url,
             bind_addr,
+            cookie_secure,
         } => {
-            let _pool = infrastructure::connect(&database_url)
+            let pool = infrastructure::connect(&database_url)
                 .await
                 .context("connecting to the database")?;
+            let state = api::AppState {
+                auth: AuthService::new(
+                    Arc::new(PgUserRepository::new(pool.clone())),
+                    Arc::new(PgSessionRepository::new(pool)),
+                    Arc::new(Argon2Hasher),
+                    Arc::new(SystemClock),
+                    Arc::new(OsTokenGenerator),
+                ),
+                cookie_secure,
+            };
             let listener = tokio::net::TcpListener::bind(bind_addr).await?;
             tracing::info!(%bind_addr, "listening");
-            axum::serve(listener, api::router())
+            axum::serve(listener, api::router(state))
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
         }
