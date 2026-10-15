@@ -36,18 +36,29 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME, but backend/Cargo.toml says $version"
             exit 1
           fi
+      # The finished word list, rebuilt only when the code that shapes it changes.
+      - uses: actions/cache@v4
+        id: lexicon
+        with:
+          path: build/lexicon.sqlite
+          key: lexicon-${{ hashFiles('backend/crates/importer/**', 'backend/crates/domain/**', 'backend/crates/infrastructure/src/sqlite/**', 'backend/crates/infrastructure/src/lexicon.rs', 'backend/migrations-sqlite/lexicon.sql') }}
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.lexicon.outputs.cache-hit != 'true'
       - uses: Swatinem/rust-cache@v2
+        if: steps.lexicon.outputs.cache-hit != 'true'
         with:
           workspaces: backend
           key: importer
+          cache-on-failure: true
       # OpenRussian and Wiktionary downloads (about 1.9 GB), kept between releases.
       - uses: actions/cache@v4
+        if: steps.lexicon.outputs.cache-hit != 'true'
         with:
           path: import-data
           key: import-data-${{ hashFiles('backend/crates/importer/src/openrussian.rs', 'backend/crates/importer/src/wiktionary.rs') }}
           restore-keys: import-data-
       - name: Build lexicon.sqlite
+        if: steps.lexicon.outputs.cache-hit != 'true'
         working-directory: backend
         run: cargo run --release -p importer -- --sqlite ../build/lexicon.sqlite --data-dir ../import-data
       - uses: actions/upload-artifact@v4
@@ -102,6 +113,7 @@ jobs:
         with:
           workspaces: backend
           key: ${{ matrix.target }}
+          cache-on-failure: true
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
@@ -114,6 +126,9 @@ jobs:
           owner: ${{ env.RELEASES_OWNER }}
           repo: ${{ env.RELEASES_REPO }}
           tagName: ${{ github.ref_name }}
+          # The tag goes on the releases repository's own branch: this
+          # repository's commits don't exist there.
+          commitish: main
           releaseName: Russian Cases Trainer ${{ github.ref_name }}
           releaseBody: |
             Download the file for your system below. The app isn't signed yet, so the

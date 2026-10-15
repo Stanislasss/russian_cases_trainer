@@ -11,7 +11,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "app", "dmg", "deb", "appimage"],
+    "targets": ["nsis", "app", "dmg", "deb", "appimage"],
     "category": "Education",
     "shortDescription": "Learn the Russian cases",
     "longDescription": "Study the declension rules of the six Russian cases, then practise them by dropping words onto their endings.",
