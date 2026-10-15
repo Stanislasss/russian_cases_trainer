@@ -20,6 +20,7 @@ permissions:
 
 env:
   PIPER: https://github.com/rhasspy/piper/releases/download/2023.11.14-2
+  PIPER_PHONEMIZE: https://github.com/rhasspy/piper-phonemize/releases/download/2023.11.14-4
   PIPER_TTS: piper-tts==1.8.0
   VOICE: ru_RU-irina-medium
 
@@ -65,9 +66,11 @@ jobs:
           - platform: macos-aarch64
             os: macos-latest
             archive: piper_macos_aarch64.tar.gz
+            phonemize: piper-phonemize_macos_aarch64.tar.gz
           - platform: macos-x86_64
             os: macos-15-intel
             archive: piper_macos_x64.tar.gz
+            phonemize: piper-phonemize_macos_x64.tar.gz
           - platform: linux-x86_64
             os: ubuntu-22.04
             archive: piper_linux_x86_64.tar.gz
@@ -91,8 +94,20 @@ jobs:
             *) tar xzf "${{ matrix.archive }}" ;;
           esac
           # Its own espeak-ng data (replaced above) and the Arabic diacritizer go.
-          rm -rf piper/espeak-ng-data piper/libtashkeel_model.ort piper/pkgconfig
+          rm -rf piper/espeak-ng-data piper/libtashkeel_model.ort piper/pkgconfig piper/*.dSYM
           cp -R piper/. pack/
+          if [ "$RUNNER_OS" = macOS ]; then
+            # Piper's macOS archives lack its libraries: take them from the
+            # matching piper-phonemize release, next to the binary, and let the
+            # binary look there (then re-sign it, as macOS requires after a change).
+            curl -sSLf -o phonemize.tar.gz "$PIPER_PHONEMIZE/${{ matrix.phonemize }}"
+            tar xzf phonemize.tar.gz
+            for lib in libespeak-ng.1 libpiper_phonemize.1 libonnxruntime.1.14.1; do
+              cp -L "piper-phonemize/lib/$lib.dylib" pack/
+            done
+            install_name_tool -add_rpath @executable_path pack/piper
+            codesign --force --sign - pack/piper
+          fi
           ls -la pack
       - name: Speaks with stress marks
         run: |
