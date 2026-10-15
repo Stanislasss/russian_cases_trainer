@@ -19,6 +19,7 @@ permissions:
   contents: read
 
 env:
+  PIPER_VERSION: 2023.11.14-2
   PIPER: https://github.com/rhasspy/piper/releases/download/2023.11.14-2
   PIPER_PHONEMIZE: https://github.com/rhasspy/piper-phonemize/releases/download/2023.11.14-4
   PIPER_TTS: piper-tts==1.8.0
@@ -63,10 +64,11 @@ jobs:
           - platform: windows-x86_64
             os: windows-latest
             archive: piper_windows_amd64.zip
+          # Upstream's "aarch64" macOS build is Intel code (it would need Rosetta),
+          # so this one is compiled here.
           - platform: macos-aarch64
             os: macos-latest
-            archive: piper_macos_aarch64.tar.gz
-            phonemize: piper-phonemize_macos_aarch64.tar.gz
+            build: true
           - platform: macos-x86_64
             os: macos-15-intel
             archive: piper_macos_x64.tar.gz
@@ -87,6 +89,7 @@ jobs:
         with:
           name: voice
       - name: Piper
+        if: ${{ !matrix.build }}
         run: |
           curl -sSLf -o "${{ matrix.archive }}" "$PIPER/${{ matrix.archive }}"
           case "${{ matrix.archive }}" in
@@ -109,6 +112,28 @@ jobs:
             codesign --force --sign - pack/piper
           fi
           ls -la pack
+      - name: Piper, compiled here
+        if: ${{ matrix.build }}
+        env:
+          # Its dependencies' CMake files predate what CMake 4 still accepts.
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+        run: |
+          curl -sSLf -o piper-src.tar.gz "https://github.com/rhasspy/piper/archive/refs/tags/$PIPER_VERSION.tar.gz"
+          tar xzf piper-src.tar.gz
+          src="piper-$PIPER_VERSION"
+          cmake -S "$src" -B "$src/build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$src/build" --config Release --target piper -j 4
+          cp "$src/build/piper" pack/
+          for lib in libespeak-ng.1 libpiper_phonemize.1 libonnxruntime.1.14.1; do
+            cp -L "$src/build/pi/lib/$lib.dylib" pack/
+          done
+          # Find the libraries next to the binary (it may already look there).
+          install_name_tool -add_rpath @executable_path pack/piper || true
+          codesign --force --sign - pack/piper
+          file pack/piper pack/*.dylib
+          if file pack/piper pack/*.dylib | grep -v arm64; then
+            echo "::error::not everything was built for Apple silicon"; exit 1
+          fi
       - name: Speaks with stress marks
         run: |
           unzip -q -o "voice-$VOICE.zip" -d pack
