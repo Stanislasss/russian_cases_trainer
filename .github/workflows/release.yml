@@ -128,7 +128,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           # The tag goes on the releases repository's own branch: this
           # repository's commits don't exist there.
-          commitish: main
+          releaseCommitish: main
           releaseName: Russian Cases Trainer ${{ github.ref_name }}
           releaseBody: |
             Download the file for your system below. The app isn't signed yet, so the
