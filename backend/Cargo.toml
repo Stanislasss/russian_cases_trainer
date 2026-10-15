@@ -7,6 +7,17 @@ members = [
     "crates/api",
     "crates/server",
     "crates/importer",
+    "crates/desktop",
+]
+# The desktop app needs each system's webview libraries, so it's built on its own
+# (`cargo build -p desktop`, in CI), not by plain `cargo build`/`test`/`clippy`.
+default-members = [
+    "crates/domain",
+    "crates/application",
+    "crates/infrastructure",
+    "crates/api",
+    "crates/server",
+    "crates/importer",
 ]
 
 [workspace.package]
@@ -34,10 +45,10 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "macros", "migrate", "uuid", "chrono"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "sqlite", "macros", "migrate", "uuid", "chrono"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
-tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip", "fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }

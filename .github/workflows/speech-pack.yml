@@ -1,0 +1,169 @@
+# Packs the desktop app's downloadable speech pack and publishes it to the
+# releases repository, under the given tag. Run by hand (Actions → Speech pack →
+# Run workflow) when the pack changes, then copy the printed speech-pack.json
+# into backend/speech-pack.json and commit it.
+#
+# The pack, per system: native Piper (rhasspy/piper 2023.11.14-2) with the
+# espeak-ng data of piper-tts 1.8 (Russian only), whose phonemizer honours stress
+# marks; Piper's own data ignores them. The voice ru_RU-irina-medium is shared.
+name: Speech pack
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag in the releases repository
+        default: speech-v1
+
+permissions:
+  contents: read
+
+env:
+  PIPER: https://github.com/rhasspy/piper/releases/download/2023.11.14-2
+  PIPER_TTS: piper-tts==1.8.0
+  VOICE: ru_RU-irina-medium
+
+jobs:
+  data:
+    name: Voice and espeak-ng data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "$PIPER_TTS"
+      - name: Russian espeak-ng data
+        run: |
+          src=$(python -c 'import piper, os; print(os.path.join(os.path.dirname(piper.__file__), "espeak-ng-data"))')
+          mkdir -p espeak-ng-data/lang/zle
+          cp "$src"/{phondata,phonindex,phontab,intonations,ru_dict} espeak-ng-data/
+          cp "$src"/lang/zle/ru espeak-ng-data/lang/zle/
+      - name: Voice
+        run: |
+          python -m piper.download_voices --data-dir voice "$VOICE"
+          (cd voice && zip -9 "../voice-$VOICE.zip" "$VOICE.onnx" "$VOICE.onnx.json")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: espeak-ng-data
+          path: espeak-ng-data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice
+          path: voice-${{ env.VOICE }}.zip
+
+  piper:
+    name: Piper for ${{ matrix.platform }}
+    needs: data
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `platform` is Rust's `<std::env::consts::OS>-<ARCH>`, as the app looks it up.
+          - platform: windows-x86_64
+            os: windows-latest
+            archive: piper_windows_amd64.zip
+          - platform: macos-aarch64
+            os: macos-latest
+            archive: piper_macos_aarch64.tar.gz
+          - platform: macos-x86_64
+            os: macos-15-intel
+            archive: piper_macos_x64.tar.gz
+          - platform: linux-x86_64
+            os: ubuntu-22.04
+            archive: piper_linux_x86_64.tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: espeak-ng-data
+          path: pack/espeak-ng-data
+      - uses: actions/download-artifact@v4
+        with:
+          name: voice
+      - name: Piper
+        run: |
+          curl -sSLf -o "${{ matrix.archive }}" "$PIPER/${{ matrix.archive }}"
+          case "${{ matrix.archive }}" in
+            *.zip) unzip -q "${{ matrix.archive }}" ;;
+            *) tar xzf "${{ matrix.archive }}" ;;
+          esac
+          # Its own espeak-ng data (replaced above) and the Arabic diacritizer go.
+          rm -rf piper/espeak-ng-data piper/libtashkeel_model.ort piper/pkgconfig
+          cp -R piper/. pack/
+          ls -la pack
+      - name: Speaks with stress marks
+        run: |
+          unzip -q -o "voice-$VOICE.zip" -d pack
+          exe=pack/piper; [ -f pack/piper.exe ] && exe=pack/piper.exe
+          printf '{"text":"за\xcc\x81мок","output_file":"a.wav"}\n{"text":"замо\xcc\x81к","output_file":"b.wav"}\n' \
+            | "$exe" --model "pack/$VOICE.onnx" --espeak_data pack/espeak-ng-data --json-input --debug 2>&1 \
+            | tee piper.log
+          grep -q "zˈɑmʌk" piper.log && grep -q "zamˈok" piper.log
+          test -s a.wav && test -s b.wav
+          rm "pack/$VOICE.onnx" "pack/$VOICE.onnx.json"
+      - name: Zip
+        run: |
+          name="piper-${{ matrix.platform }}.zip"
+          if [ "$RUNNER_OS" = Windows ]; then
+            (cd pack && 7z a -tzip -mx=9 "../$name" . >/dev/null)
+          else
+            (cd pack && zip -9 -r "../$name" .)
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piper-${{ matrix.platform }}
+          path: piper-${{ matrix.platform }}.zip
+
+  publish:
+    needs: piper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          merge-multiple: true
+      - name: Release in the releases repository
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          REPO: Stanislasss/russian-cases-trainer-releases
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release create "$TAG" parts/*.zip --repo "$REPO" \
+            --title "Speech pack ($TAG)" \
+            --notes "Downloaded by the app (Settings → Pronunciation). Piper and eSpeak NG: GPL-3.0." \
+            --latest=false
+      - name: speech-pack.json
+        env:
+          BASE: https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/${{ inputs.tag }}
+        run: |
+          entry() {
+            printf '{ "url": "%s/%s", "sha256": "%s", "size": %s }' \
+              "$BASE" "$(basename "$1")" "$(sha256sum "$1" | cut -d' ' -f1)" "$(stat -c %s "$1")"
+          }
+          {
+            echo '{'
+            echo '  "piper": {'
+            first=1
+            for f in parts/piper-*.zip; do
+              platform=$(basename "$f" .zip); platform=${platform#piper-}
+              [ $first = 1 ] || echo ','
+              printf '    "%s": %s' "$platform" "$(entry "$f")"
+              first=0
+            done
+            echo
+            echo '  },'
+            printf '  "voice": %s\n' "$(entry "parts/voice-$VOICE.zip")"
+            echo '}'
+          } > speech-pack.json
+          cat speech-pack.json
+          echo '### backend/speech-pack.json' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat speech-pack.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: speech-pack.json
+          path: speech-pack.json

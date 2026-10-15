@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { speechAvailable, useConfig } from '../config/config'
 
 const MUTED_KEY = 'speech.muted'
 
@@ -56,27 +57,33 @@ export type Speech = ReturnType<typeof useSpeech>
 /**
  * Pronounces Russian words. `speak` interrupts whatever is playing; `enqueue`
  * waits for it to finish. Both resolve once the word has been heard, or right
- * away with 'skipped' when muted or when the sound can't play. Muting is
- * remembered across visits.
+ * away with 'skipped' when speech is off or when the sound can't play.
+ *
+ * Speech is `available` when the server can pronounce words (the desktop app
+ * needs its speech pack for that), and `on` when it's also not muted. Muting is
+ * remembered across visits. `listen` is `speak` for 🔊 buttons, absent when
+ * speech is off.
  */
 export function useSpeech() {
   const [muted, setMuted] = useState(() => localStorage.getItem(MUTED_KEY) === 'true')
+  const available = speechAvailable(useConfig().data)
+  const on = available && !muted
 
   const speak = useCallback(
     (text: string): Promise<Outcome> => {
-      if (muted) return Promise.resolve('skipped')
+      if (!on) return Promise.resolve('skipped')
       stop()
       return new Promise((done) => {
         queue = [{ text, done }]
         playNext()
       })
     },
-    [muted],
+    [on],
   )
 
   const enqueue = useCallback(
     (text: string): Promise<Outcome> => {
-      if (muted) return Promise.resolve('skipped')
+      if (!on) return Promise.resolve('skipped')
       return new Promise((done) => {
         queue.push({ text, done })
         // A paused sound never started (blocked, or failed to load): don't wait on it.
@@ -88,15 +95,15 @@ export function useSpeech() {
         if (!playing) playNext()
       })
     },
-    [muted],
+    [on],
   )
 
   /** Asks the backend to synthesize now, so a later `speak` plays at once. */
   const prefetch = useCallback(
     (text: string) => {
-      if (!muted) fetch(speechUrl(text)).catch(() => {})
+      if (on) fetch(speechUrl(text)).catch(() => {})
     },
-    [muted],
+    [on],
   )
 
   const toggleMuted = useCallback(() => {
@@ -107,5 +114,14 @@ export function useSpeech() {
     })
   }, [])
 
-  return { speak, enqueue, prefetch, muted, toggleMuted }
+  return {
+    speak,
+    enqueue,
+    prefetch,
+    muted,
+    toggleMuted,
+    available,
+    on,
+    listen: on ? speak : undefined,
+  }
 }

@@ -49,9 +49,10 @@ type FilterBinds = (
     bool,
 );
 
-/// The filter as the parameters $1..$5 of `ELIGIBLE`.
-fn filter_binds(filter: &GameFilter) -> FilterBinds {
-    let rows: Vec<_> = filter
+/// The filter's levels as (part of speech, max rank, number) rows, one per level
+/// and number.
+pub(crate) fn level_rows(filter: &GameFilter) -> Vec<(&'static str, i32, &'static str)> {
+    filter
         .levels
         .iter()
         .flat_map(|spec| {
@@ -59,7 +60,12 @@ fn filter_binds(filter: &GameFilter) -> FilterBinds {
                 .iter()
                 .map(move |n| (spec.pos.as_str(), spec.max_rank, n.as_str()))
         })
-        .collect();
+        .collect()
+}
+
+/// The filter as the parameters $1..$5 of `ELIGIBLE`.
+fn filter_binds(filter: &GameFilter) -> FilterBinds {
+    let rows = level_rows(filter);
     (
         rows.iter().map(|r| r.0).collect(),
         rows.iter().map(|r| r.1).collect(),
@@ -77,10 +83,56 @@ where
     if value == ANY {
         Ok(None)
     } else {
-        value
-            .parse()
-            .map(Some)
-            .map_err(|e| RepoError::Other(Box::new(e)))
+        value.parse().map(Some).map_err(invalid)
+    }
+}
+
+fn invalid(err: impl std::error::Error + Send + Sync + 'static) -> RepoError {
+    RepoError::Other(Box::new(err))
+}
+
+/// One picked word as stored, the same for Postgres and SQLite.
+pub(crate) struct ItemRow {
+    pub lexeme_id: i64,
+    pub stressed_lemma: String,
+    /// (locale, the first meanings joined by "; ")
+    pub translations: Vec<(String, String)>,
+    pub number: String,
+    pub gender: String,
+    pub animacy: String,
+    pub answer: String,
+    pub accepted: Vec<String>,
+    pub stressed_form: String,
+    pub pos: String,
+    pub lemma: String,
+    pub lexeme_gender: Option<String>,
+}
+
+impl ItemRow {
+    pub(crate) fn into_item(self) -> Result<GameItem, RepoError> {
+        let lexeme_gender = self
+            .lexeme_gender
+            .as_deref()
+            .map(str::parse::<Gender>)
+            .transpose()
+            .map_err(invalid)?;
+        let pos = self.pos.parse().map_err(invalid)?;
+        Ok(GameItem {
+            paradigm: paradigm(pos, &self.lemma, lexeme_gender),
+            lexeme_id: self.lexeme_id,
+            stressed_lemma: self.stressed_lemma,
+            translations: self
+                .translations
+                .into_iter()
+                .map(|(locale, text)| Ok((locale.parse::<Locale>().map_err(invalid)?, text)))
+                .collect::<Result<_, RepoError>>()?,
+            number: self.number.parse().map_err(invalid)?,
+            gender: optional::<Gender>(&self.gender)?,
+            animacy: optional::<Animacy>(&self.animacy)?,
+            answer: self.answer,
+            accepted: self.accepted,
+            stressed_form: self.stressed_form,
+        })
     }
 }
 
@@ -202,41 +254,26 @@ impl ExerciseRepository for PgExerciseRepository {
 
         rows.into_iter()
             .map(|r| {
-                let lexeme_gender = r
-                    .lexeme_gender
-                    .as_deref()
-                    .map(str::parse::<Gender>)
-                    .transpose()
-                    .map_err(|e| RepoError::Other(Box::new(e)))?;
-                let pos = r.pos.parse().map_err(|e| RepoError::Other(Box::new(e)))?;
-                Ok(GameItem {
-                    paradigm: paradigm(pos, &r.lemma, lexeme_gender),
+                ItemRow {
                     lexeme_id: r.lexeme_id,
                     stressed_lemma: r.stressed_lemma,
                     translations: r
                         .translation_locales
                         .unwrap_or_default()
-                        .iter()
+                        .into_iter()
                         .zip(r.translation_texts.unwrap_or_default())
-                        .map(|(locale, text)| {
-                            Ok((
-                                locale
-                                    .parse::<Locale>()
-                                    .map_err(|e| RepoError::Other(Box::new(e)))?,
-                                text,
-                            ))
-                        })
-                        .collect::<Result<_, RepoError>>()?,
-                    number: r
-                        .number
-                        .parse()
-                        .map_err(|e| RepoError::Other(Box::new(e)))?,
-                    gender: optional::<Gender>(&r.gender)?,
-                    animacy: optional::<Animacy>(&r.animacy)?,
+                        .collect(),
+                    number: r.number,
+                    gender: r.gender,
+                    animacy: r.animacy,
                     answer: r.answer,
                     accepted: r.accepted,
                     stressed_form: r.stressed_form,
-                })
+                    pos: r.pos,
+                    lemma: r.lemma,
+                    lexeme_gender: r.lexeme_gender,
+                }
+                .into_item()
             })
             .collect()
     }
@@ -311,62 +348,15 @@ impl AttemptRepository for PgAttemptRepository {
 
 #[cfg(test)]
 mod tests {
-    use application::game::{MAX_ZONES, MIN_ZONE_SHARE};
     use application::ports::{NewPasswordUser, UserRepository};
-    use domain::game::LevelId;
-    use domain::grammar::{Case, Number, PartOfSpeech};
-    use domain::lexicon::{NewForm, NewLexeme, NewTranslation, Slot};
+    use domain::grammar::{Case, Number};
+    use domain::lexicon::NewLexeme;
     use domain::user::{DisplayName, Email};
 
     use super::*;
+    use crate::contract::{Seed, contract_tests, nouns};
     use crate::lexicon::upsert_lexemes;
     use crate::users::PgUserRepository;
-
-    fn lexeme(lemma: &str, pos: PartOfSpeech, rank: i32, indeclinable: bool) -> NewLexeme {
-        NewLexeme {
-            source: "test".into(),
-            source_id: lemma.into(),
-            lemma: lemma.into(),
-            stressed_lemma: None,
-            pos,
-            gender: None,
-            animacy: None,
-            indeclinable,
-            frequency_rank: Some(rank),
-            forms: Vec::new(),
-            translations: Vec::new(),
-        }
-    }
-
-    /// A noun with the given instrumental forms; stress marks optional.
-    fn noun(
-        lemma: &str,
-        rank: i32,
-        indeclinable: bool,
-        forms: &[(Number, &[&str])],
-        translations: &[(Locale, &str)],
-    ) -> NewLexeme {
-        NewLexeme {
-            forms: forms
-                .iter()
-                .flat_map(|&(number, variants)| {
-                    (0..).zip(variants.iter()).map(move |(variant, form)| {
-                        let slot = Slot::new(Case::Instrumental, number);
-                        NewForm::noun(lemma, form, slot, variant, indeclinable)
-                    })
-                })
-                .collect(),
-            translations: (0..)
-                .zip(translations)
-                .map(|(position, &(locale, text))| NewTranslation {
-                    locale,
-                    position,
-                    text: text.into(),
-                })
-                .collect(),
-            ..lexeme(lemma, PartOfSpeech::Noun, rank, indeclinable)
-        }
-    }
 
     async fn seed(pool: &PgPool, words: &[NewLexeme]) {
         let mut tx = pool.begin().await.unwrap();
@@ -374,300 +364,20 @@ mod tests {
         tx.commit().await.unwrap();
     }
 
-    async fn seed_nouns(pool: &PgPool) {
-        use Number::*;
-        seed(
-            pool,
-            &[
-                noun(
-                    "книга",
-                    1,
-                    false,
-                    &[
-                        (Singular, &["кни\u{301}гой", "кни\u{301}гою"]),
-                        (Plural, &["кни\u{301}гами"]),
-                    ],
-                    &[(Locale::En, "book")],
-                ),
-                noun("отец", 2, false, &[(Singular, &["отцо\u{301}м"])], &[]), // irregular
-                noun("Москва", 3, false, &[(Singular, &["Москво\u{301}й"])], &[]), // proper noun
-                noun("кофе", 4, true, &[(Singular, &["ко\u{301}фе"])], &[]),   // indeclinable
-                noun(
-                    "стол",
-                    500,
-                    false,
-                    &[
-                        (Singular, &["столо\u{301}м"]),
-                        (Plural, &["стола\u{301}ми"]),
-                    ],
-                    &[(Locale::En, "table"), (Locale::Fr, "table (fr)")],
-                ),
-            ],
-        )
-        .await;
-    }
+    struct Pg(PgPool);
 
-    fn filter(levels: &[LevelId], case: Case) -> GameFilter {
-        let levels: Vec<_> = levels.iter().map(|l| l.spec()).collect();
-        GameFilter {
-            answer: levels[0].answer,
-            levels,
-            case,
+    impl Seed for Pg {
+        async fn seed(self, words: &[NewLexeme]) -> Box<dyn ExerciseRepository> {
+            seed(&self.0, words).await;
+            Box::new(PgExerciseRepository::new(self.0))
         }
     }
 
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn zones_come_from_the_selected_levels(pool: PgPool) {
-        seed_nouns(&pool).await;
-        let repo = PgExerciseRepository::new(pool);
-        let instrumental = |levels: &[LevelId]| filter(levels, Case::Instrumental);
-
-        let mut basic = repo
-            .zones(
-                &instrumental(&[LevelId::BasicNouns]),
-                MIN_ZONE_SHARE,
-                MAX_ZONES,
-            )
-            .await
-            .unwrap();
-        basic.sort();
-        // Only книга qualifies: отец is irregular, Москва a proper noun, кофе indeclinable,
-        // стол too rare, and plurals aren't in the basic level.
-        assert_eq!(basic, ["ой"]);
-
-        let mut wider = repo
-            .zones(
-                &instrumental(&[LevelId::BasicNouns, LevelId::IntermediateNouns]),
-                MIN_ZONE_SHARE,
-                MAX_ZONES,
-            )
-            .await
-            .unwrap();
-        wider.sort();
-        assert_eq!(wider, ["ами", "ой", "ом"]);
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn zones_are_capped_to_the_most_common(pool: PgPool) {
-        seed_nouns(&pool).await;
-        let repo = PgExerciseRepository::new(pool);
-        // Intermediate pool: ой, ом, ами, ами → ами is the most common.
-        let zones = repo
-            .zones(
-                &filter(&[LevelId::IntermediateNouns], Case::Instrumental),
-                0.0,
-                1,
-            )
-            .await
-            .unwrap();
-        assert_eq!(zones, ["ами"]);
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn rare_endings_get_no_zone(pool: PgPool) {
-        seed_nouns(&pool).await;
-        let repo = PgExerciseRepository::new(pool);
-        // Intermediate pool: ой, ом, ами, ами → only ами reaches 40%.
-        let zones = repo
-            .zones(
-                &filter(&[LevelId::IntermediateNouns], Case::Instrumental),
-                0.4,
-                MAX_ZONES,
-            )
-            .await
-            .unwrap();
-        assert_eq!(zones, ["ами"]);
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn items_carry_answers_variants_and_translations(pool: PgPool) {
-        seed_nouns(&pool).await;
-        let repo = PgExerciseRepository::new(pool);
-
-        let basic = filter(&[LevelId::BasicNouns], Case::Instrumental);
-        let items = repo.random_items(&basic, &["ой".into()], 10).await.unwrap();
-        assert_eq!(items.len(), 1);
-        let kniga = &items[0];
-        assert_eq!(kniga.stressed_lemma, "книга"); // no stressed lemma seeded
-        assert_eq!(
-            (kniga.number, kniga.gender, kniga.animacy),
-            (Number::Singular, None, None)
-        );
-        assert_eq!(kniga.answer, "ой");
-        let mut accepted = kniga.accepted.clone();
-        accepted.sort();
-        assert_eq!(accepted, ["ой", "ою"]);
-        assert_eq!(kniga.stressed_form, "кни\u{301}гой");
-        assert_eq!(kniga.paradigm, Some(domain::rules::Paradigm::NounA));
-        assert_eq!(kniga.translations, [(Locale::En, "book".to_owned())]);
-
-        let intermediate = filter(&[LevelId::IntermediateNouns], Case::Instrumental);
-        let items = repo
-            .random_items(&intermediate, &["ом".into()], 10)
-            .await
-            .unwrap();
-        assert_eq!(items.len(), 1);
-        let mut translations = items[0].translations.clone();
-        translations.sort_by_key(|(locale, _)| locale.as_str());
-        assert_eq!(
-            translations,
-            [
-                (Locale::En, "table".to_owned()),
-                (Locale::Fr, "table (fr)".to_owned())
-            ]
-        );
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn items_show_up_to_three_meanings_per_language(pool: PgPool) {
-        use Number::*;
-        let meanings = [
-            (Locale::En, "hand"),
-            (Locale::En, "arm"),
-            (Locale::En, "handwriting"),
-            (Locale::En, "side"),
-        ];
-        // noun() numbers translations 0.. across locales, as one list here.
-        let ruka = noun("рука", 1, false, &[(Singular, &["руко́й"])], &meanings);
-        seed(&pool, &[ruka]).await;
-
-        let items = PgExerciseRepository::new(pool)
-            .random_items(
-                &filter(&[LevelId::BasicNouns], Case::Instrumental),
-                &["ой".into()],
-                10,
-            )
-            .await
-            .unwrap();
-        assert_eq!(
-            items[0].translations,
-            [(Locale::En, "hand; arm; handwriting".to_owned())]
-        );
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn adjective_items_say_which_form_is_asked(pool: PgPool) {
-        let m_anim = Slot::new(Case::Accusative, Number::Singular)
-            .gender(Gender::Masculine)
-            .animacy(Animacy::Animate);
-        let m_inan = m_anim.animacy(Animacy::Inanimate);
-        let f = Slot::new(Case::Accusative, Number::Singular).gender(Gender::Feminine);
-        let novy = NewLexeme {
-            forms: vec![
-                NewForm::adjective("новый", "но\u{301}вого", m_anim, 0),
-                NewForm::adjective("новый", "но\u{301}вый", m_inan, 0),
-                NewForm::adjective("новый", "но\u{301}вую", f, 0),
-            ],
-            ..lexeme("новый", PartOfSpeech::Adjective, 1, false)
-        };
-        seed(&pool, &[novy]).await;
-        let repo = PgExerciseRepository::new(pool);
-        let accusative = filter(&[LevelId::BasicAdjectives], Case::Accusative);
-
-        let mut zones = repo
-            .zones(&accusative, MIN_ZONE_SHARE, MAX_ZONES)
-            .await
-            .unwrap();
-        zones.sort();
-        assert_eq!(zones, ["ого", "ую", "ый"]);
-
-        let items = repo
-            .random_items(&accusative, &["ого".into()], 10)
-            .await
-            .unwrap();
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].gender, Some(Gender::Masculine));
-        assert_eq!(items[0].animacy, Some(Animacy::Animate));
-        assert_eq!(items[0].accepted, ["ого"]); // not the inanimate ый
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn a_batch_asks_each_word_once(pool: PgPool) {
-        let slot = |gender| Slot::new(Case::Genitive, Number::Singular).gender(gender);
-        let novy = NewLexeme {
-            forms: vec![
-                NewForm::adjective("новый", "но\u{301}вого", slot(Gender::Masculine), 0),
-                NewForm::adjective("новый", "но\u{301}вого", slot(Gender::Neuter), 0),
-                NewForm::adjective("новый", "но\u{301}вой", slot(Gender::Feminine), 0),
-            ],
-            ..lexeme("новый", PartOfSpeech::Adjective, 1, false)
-        };
-        seed(&pool, &[novy]).await;
-
-        let items = PgExerciseRepository::new(pool)
-            .random_items(
-                &filter(&[LevelId::BasicAdjectives], Case::Genitive),
-                &["ого".into(), "ой".into()],
-                10,
-            )
-            .await
-            .unwrap();
-        assert_eq!(items.len(), 1);
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn the_dictionary_form_is_never_asked(pool: PgPool) {
-        let nom = |number| Slot::new(Case::Nominative, number);
-        let kniga = NewLexeme {
-            forms: vec![
-                NewForm::noun("книга", "кни\u{301}га", nom(Number::Singular), 0, false),
-                NewForm::noun("книга", "кни\u{301}ги", nom(Number::Plural), 0, false),
-            ],
-            ..lexeme("книга", PartOfSpeech::Noun, 1, false)
-        };
-        seed(&pool, &[kniga]).await;
-        let zones = PgExerciseRepository::new(pool)
-            .zones(
-                &filter(&[LevelId::IntermediateNouns], Case::Nominative),
-                MIN_ZONE_SHARE,
-                MAX_ZONES,
-            )
-            .await
-            .unwrap();
-        assert_eq!(zones, ["и"]);
-    }
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn personal_pronouns_are_asked_as_whole_forms(pool: PgPool) {
-        let genitive = Slot::new(Case::Genitive, Number::Singular);
-        let pronoun = |lemma: &str, rank, forms: &[&str]| NewLexeme {
-            forms: (0..)
-                .zip(forms)
-                .map(|(variant, form)| NewForm::whole(form, genitive, variant))
-                .collect(),
-            ..lexeme(lemma, PartOfSpeech::PersonalPronoun, rank, false)
-        };
-        seed(
-            &pool,
-            &[
-                pronoun("я", 1, &["меня\u{301}"]),
-                pronoun("он", 3, &["его\u{301}", "него\u{301}"]),
-                pronoun("ты", 2, &["тебя\u{301}"]),
-            ],
-        )
-        .await;
-        let repo = PgExerciseRepository::new(pool);
-        let genitive = filter(&[LevelId::PersonalPronouns], Case::Genitive);
-
-        // Ordered like the pronouns themselves: я, ты, он.
-        let zones = repo
-            .zones(&genitive, MIN_ZONE_SHARE, MAX_ZONES)
-            .await
-            .unwrap();
-        assert_eq!(zones, ["меня", "тебя", "его"]);
-
-        let items = repo
-            .random_items(&genitive, &["его".into()], 10)
-            .await
-            .unwrap();
-        let mut accepted = items[0].accepted.clone();
-        accepted.sort();
-        assert_eq!(accepted, ["его", "него"]);
-    }
+    contract_tests!(sqlx::test(migrator = "crate::MIGRATOR"), (pool: PgPool) => Pg(pool));
 
     #[sqlx::test(migrator = "crate::MIGRATOR")]
     async fn attempts_are_stored(pool: PgPool) {
-        seed_nouns(&pool).await;
+        seed(&pool, &nouns()).await;
         let user = PgUserRepository::new(pool.clone())
             .create_password_user(NewPasswordUser {
                 email: Email::parse("anna@example.com").unwrap(),

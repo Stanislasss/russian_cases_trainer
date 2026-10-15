@@ -18,7 +18,7 @@ const SPELLING_RULES: SpellingRule[] = ['yi', 'unstressedE', 'au']
 export function RulesPage() {
   const { t } = useTranslation()
   const g = useGrammarTexts()
-  const { speak } = useSpeech()
+  const { listen } = useSpeech()
 
   return (
     <article className="mx-auto max-w-3xl space-y-8">
@@ -57,7 +57,7 @@ export function RulesPage() {
             <p className="text-sm text-slate-700">{g.spelling[rule].detail}</p>
             <p className="text-sm">
               {SPELLING_EXAMPLES[rule].join(', ')}
-              <Listen text={SPELLING_EXAMPLES[rule].join(', ')} speak={speak} />
+              <Listen text={SPELLING_EXAMPLES[rule].join(', ')} speak={listen} />
             </p>
           </div>
         ))}
@@ -74,7 +74,7 @@ export function RulesPage() {
         <p className="text-slate-700">{g.indeclinable.detail}</p>
         <p>
           {INDECLINABLE.join(', ')}
-          <Listen text={INDECLINABLE.join(', ')} speak={speak} />
+          <Listen text={INDECLINABLE.join(', ')} speak={listen} />
         </p>
       </section>
     </article>

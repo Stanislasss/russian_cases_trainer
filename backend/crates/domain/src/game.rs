@@ -66,6 +66,17 @@ impl LevelId {
     }
 }
 
+/// Whether some level can ask a word of this part of speech and frequency rank.
+/// Words without a rank never are.
+pub fn askable(pos: PartOfSpeech, rank: Option<i32>) -> bool {
+    rank.is_some_and(|rank| {
+        LevelId::ALL.iter().any(|level| {
+            let spec = level.spec();
+            spec.pos == pos && rank <= spec.max_rank
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,6 +99,16 @@ mod tests {
             let whole = level.spec().answer == AnswerKind::WholeForm;
             assert_eq!(whole, level == LevelId::PersonalPronouns, "{level}");
         }
+    }
+
+    #[test]
+    fn words_beyond_every_level_are_not_askable() {
+        use PartOfSpeech::*;
+        assert!(askable(Noun, Some(10_000)));
+        assert!(!askable(Noun, Some(10_001)));
+        assert!(!askable(Adjective, Some(2001)));
+        assert!(askable(Surname, Some(1_000_000)));
+        assert!(!askable(Noun, None));
     }
 
     #[test]

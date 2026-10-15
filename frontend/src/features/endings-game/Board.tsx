@@ -118,15 +118,17 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
               </span>
             )}
             <span>
-              <Button
-                variant="ghost"
-                onClick={speech.toggleMuted}
-                aria-pressed={speech.muted}
-                aria-label={t(speech.muted ? 'game.unmute' : 'game.mute')}
-                title={t(speech.muted ? 'game.unmute' : 'game.mute')}
-              >
-                {speech.muted ? '🔇' : '🔊'}
-              </Button>
+              {speech.available && (
+                <Button
+                  variant="ghost"
+                  onClick={speech.toggleMuted}
+                  aria-pressed={speech.muted}
+                  aria-label={t(speech.muted ? 'game.unmute' : 'game.mute')}
+                  title={t(speech.muted ? 'game.unmute' : 'game.mute')}
+                >
+                  {speech.muted ? '🔇' : '🔊'}
+                </Button>
+              )}
               <Button variant="ghost" onClick={onQuit}>
                 {t('game.quit')}
               </Button>
@@ -148,7 +150,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
                 selected={word.id === selected}
                 hidden={dragging?.id === word.id}
                 onSelect={() => setSelected(word.id === selected ? null : word.id)}
-                onListen={speech.muted ? undefined : () => speech.speak(word.item.stressed_lemma)}
+                onListen={speech.on ? () => speech.speak(word.item.stressed_lemma) : undefined}
               />
             ))}
             {/* While paused, the word just answered stays in view (not draggable). */}
@@ -157,7 +159,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
                 word={{ id: 0, item: last.item, spawnedAt: 0, duration: Infinity }}
                 selected={false}
                 answered
-                onListen={speech.muted ? undefined : () => speech.speak(last.item.stressed_lemma)}
+                onListen={speech.on ? () => speech.speak(last.item.stressed_lemma) : undefined}
               />
             )}
             {/* Waiting after a correct answer: the next word comes by itself, or now. */}
@@ -209,7 +211,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
               chosen={mistake.chosen}
               gameCase={state.gameCase}
               answerKind={state.answerKind}
-              speak={speech.muted ? undefined : speech.speak}
+              speak={speech.listen}
             />
             {/* Focused: reading, then Enter, is the only thing to do now. */}
             <Button onClick={onContinue} autoFocus className="w-full">
@@ -290,7 +292,7 @@ function WordCard({ word, arcade, selected, hidden, onSelect, onListen }: CardPr
 interface CardFaceProps {
   word: Word
   selected: boolean
-  /** Shows a 🔊 button; absent when muted and on the copy being dragged. */
+  /** Shows a 🔊 button; absent when speech is off and on the copy being dragged. */
   onListen?: () => void
   /** Already answered: shown for reference, can't be dragged. */
   answered?: boolean

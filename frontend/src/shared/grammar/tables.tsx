@@ -16,7 +16,7 @@ import { useSpeech } from '../speech/useSpeech'
 /** The endings of one case for every paradigm of a group; rows are linkable (#paradigm). */
 export function EndingsTable({ group, gameCase }: { group: Group; gameCase: Case }) {
   const g = useGrammarTexts()
-  const { speak } = useSpeech()
+  const { listen } = useSpeech()
   const paradigms = tablesOf(group)
   // Columns in the order they first appear (nouns: sg/pl; adjectives: m/n/f/pl).
   const columns = [...new Set(paradigms.flatMap((p) => TABLES[p].columns))] as Column[]
@@ -59,7 +59,7 @@ export function EndingsTable({ group, gameCase }: { group: Group; gameCase: Case
                           </span>
                           <span className="block text-slate-600">
                             {cell.example}
-                            <Listen text={cell.example} speak={speak} />
+                            <Listen text={cell.example} speak={listen} />
                           </span>
                         </>
                       ) : (
@@ -81,7 +81,7 @@ export function EndingsTable({ group, gameCase }: { group: Group; gameCase: Case
 /** Personal pronouns in every case, or in `only` one case. */
 export function PersonalPronounsTable({ only }: { only?: Case }) {
   const { t } = useTranslation()
-  const { speak } = useSpeech()
+  const { listen } = useSpeech()
   const cases = only ? [only] : CASES
   return (
     <div className="overflow-x-auto">
@@ -102,7 +102,7 @@ export function PersonalPronounsTable({ only }: { only?: Case }) {
                 <td key={c} className="px-2 py-1">
                   {only && <span className="mr-2 text-slate-500">{p.lemma} →</span>}
                   {p.forms[c]}
-                  {p.forms[c] !== '—' && <Listen text={p.forms[c]} speak={speak} />}
+                  {p.forms[c] !== '—' && <Listen text={p.forms[c]} speak={listen} />}
                 </td>
               ))}
             </tr>

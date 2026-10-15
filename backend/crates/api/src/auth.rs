@@ -1,6 +1,6 @@
 //! Account routes and the `CurrentUser` extractor.
 
-use application::auth::{RegisterInput, Session};
+use application::auth::{AuthService, RegisterInput, Session};
 use axum::extract::{FromRequestParts, State};
 use axum::http::StatusCode;
 use axum::http::request::Parts;
@@ -13,18 +13,34 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::AppState;
 use crate::dto::UiLocale;
 use crate::error::{AppError, Problem};
+use crate::{Accounts, AppState};
 
 pub const SESSION_COOKIE: &str = "session";
 
-pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/api/auth/register", post(register))
-        .route("/api/auth/login", post(login))
-        .route("/api/auth/logout", post(logout))
-        .route("/api/me", get(me))
+/// `/api/me`, plus registration and login when there are accounts.
+pub fn routes(accounts: &Accounts) -> Router<AppState> {
+    let router = Router::new().route("/api/me", get(me));
+    match accounts {
+        Accounts::Sessions { .. } => router
+            .route("/api/auth/register", post(register))
+            .route("/api/auth/login", post(login))
+            .route("/api/auth/logout", post(logout)),
+        Accounts::Local(_) => router,
+    }
+}
+
+/// The account service and whether cookies are `Secure`. The account routes
+/// only exist with sessions, so the local user never gets here.
+fn sessions(state: &AppState) -> Result<(&AuthService, bool), AppError> {
+    match &state.accounts {
+        Accounts::Sessions {
+            auth,
+            cookie_secure,
+        } => Ok((auth, *cookie_secure)),
+        Accounts::Local(_) => Err(AppError::NotFound),
+    }
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -76,8 +92,8 @@ async fn register(
     jar: CookieJar,
     Json(req): Json<RegisterRequest>,
 ) -> Result<(StatusCode, CookieJar, Json<UserDto>), AppError> {
-    let (user, session) = state
-        .auth
+    let (auth, secure) = sessions(&state)?;
+    let (user, session) = auth
         .register(RegisterInput {
             email: req.email,
             password: req.password,
@@ -85,7 +101,7 @@ async fn register(
             ui_locale: req.ui_locale.map_or(Locale::En, Locale::from),
         })
         .await?;
-    let jar = jar.add(session_cookie(&state, session));
+    let jar = jar.add(session_cookie(session, secure));
     Ok((StatusCode::CREATED, jar, Json(user.into())))
 }
 
@@ -103,8 +119,9 @@ async fn login(
     jar: CookieJar,
     Json(req): Json<LoginRequest>,
 ) -> Result<(CookieJar, Json<UserDto>), AppError> {
-    let (user, session) = state.auth.login(&req.email, &req.password).await?;
-    let jar = jar.add(session_cookie(&state, session));
+    let (auth, secure) = sessions(&state)?;
+    let (user, session) = auth.login(&req.email, &req.password).await?;
+    let jar = jar.add(session_cookie(session, secure));
     Ok((jar, Json(user.into())))
 }
 
@@ -114,8 +131,9 @@ async fn logout(
     State(state): State<AppState>,
     jar: CookieJar,
 ) -> Result<(StatusCode, CookieJar), AppError> {
+    let (auth, _) = sessions(&state)?;
     if let Some(cookie) = jar.get(SESSION_COOKIE) {
-        state.auth.logout(cookie.value()).await?;
+        auth.logout(cookie.value()).await?;
     }
     let jar = jar.remove(Cookie::build(SESSION_COOKIE).path("/"));
     Ok((StatusCode::NO_CONTENT, jar))
@@ -133,33 +151,36 @@ async fn me(CurrentUser(user): CurrentUser) -> Json<UserDto> {
     Json(user.into())
 }
 
-fn session_cookie(state: &AppState, session: Session) -> Cookie<'static> {
+fn session_cookie(session: Session, secure: bool) -> Cookie<'static> {
     let max_age = (session.expires_at - Utc::now()).num_seconds();
     Cookie::build((SESSION_COOKIE, session.token))
         .path("/")
         .http_only(true)
         .same_site(SameSite::Lax)
-        .secure(state.cookie_secure)
+        .secure(secure)
         .max_age(time::Duration::seconds(max_age))
         .build()
 }
 
-/// The user behind the request's session cookie. Rejects with 401 otherwise,
-/// so taking it as a handler argument makes a route require login.
+/// The user behind the request's session cookie, or the desktop app's local
+/// user. Rejects with 401 otherwise, so taking it as a handler argument makes a
+/// route require login.
 pub struct CurrentUser(pub User);
 
 impl FromRequestParts<AppState> for CurrentUser {
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        let auth = match &state.accounts {
+            Accounts::Sessions { auth, .. } => auth,
+            Accounts::Local(user) => return Ok(CurrentUser(user.clone())),
+        };
         let jar = CookieJar::from_headers(&parts.headers);
         let token = jar
             .get(SESSION_COOKIE)
             .ok_or(AppError::Unauthenticated)?
             .value();
-        state
-            .auth
-            .current_user(token)
+        auth.current_user(token)
             .await?
             .map(CurrentUser)
             .ok_or(AppError::Unauthenticated)

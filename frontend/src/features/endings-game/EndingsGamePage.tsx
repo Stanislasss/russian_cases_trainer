@@ -189,7 +189,7 @@ export function EndingsGamePage() {
           loggedIn={loggedIn}
           onAgain={start}
           onSettings={() => dispatch({ type: 'reset' })}
-          speak={speech.muted ? undefined : speech.speak}
+          speak={speech.listen}
         />
       )
   }

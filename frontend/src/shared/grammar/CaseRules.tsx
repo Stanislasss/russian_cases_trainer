@@ -20,7 +20,7 @@ interface Props {
 export function CaseRules({ gameCase: c, anchor, actions }: Props) {
   const { t } = useTranslation()
   const g = useGrammarTexts()
-  const { speak } = useSpeech()
+  const { listen } = useSpeech()
   const texts = g.cases[c]
   // The ids are typed per case; here we only need them as entries.
   const uses = texts.uses as Record<string, UseEntry>
@@ -52,7 +52,7 @@ export function CaseRules({ gameCase: c, anchor, actions }: Props) {
               {(examples as readonly string[]).map((example, i) => (
                 <li key={example}>
                   <span lang="ru">{example}</span>
-                  <Listen text={example} speak={speak} />
+                  <Listen text={example} speak={listen} />
                   {uses[id].translations?.[i] && (
                     <span className="ml-2 text-slate-500">— {uses[id].translations?.[i]}</span>
                   )}
@@ -87,7 +87,7 @@ export function CaseRules({ gameCase: c, anchor, actions }: Props) {
               {(examples as readonly string[]).map((example) => (
                 <li key={example} lang="ru">
                   {example}
-                  <Listen text={example} speak={speak} />
+                  <Listen text={example} speak={listen} />
                 </li>
               ))}
             </ul>

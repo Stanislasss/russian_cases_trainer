@@ -50,6 +50,27 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # The desktop app's backend without its window, for trying it in a browser:
+  # SQLite word list (`just lexicon-sqlite`), one local user, the built frontend.
+  # `just serve-local`, then http://localhost:8090
+  local:
+    <<: *backend
+    profiles: [tools]
+    command:
+      - server
+      - serve-local
+      - --lexicon=/build/lexicon.sqlite
+      - --data-dir=/data
+      - --static=/dist
+      - --bind=0.0.0.0:8080
+      - --origin=http://localhost:8090
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./build:/build:ro
+      - ./frontend/dist:/dist:ro
+      - local-data:/data
+
   # Russian text-to-speech (Piper). The test page on http://localhost:5002 is for
   # comparing voices; the backend uses http://tts:5000.
   tts:
@@ -121,3 +142,4 @@ volumes:
   cargo-registry:
   cargo-target:
   speech-cache:
+  local-data:

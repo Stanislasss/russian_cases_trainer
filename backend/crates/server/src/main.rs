@@ -41,6 +41,24 @@ enum Command {
         #[arg(long, env = "SPEECH_CACHE_DIR", default_value = "speech-cache")]
         speech_cache_dir: std::path::PathBuf,
     },
+    /// Run the desktop app's backend without its window: SQLite, one local user,
+    /// the speech pack and the built frontend (for trying it out in a browser).
+    ServeLocal {
+        /// The word list written by `importer --sqlite`.
+        #[arg(long)]
+        lexicon: std::path::PathBuf,
+        /// Progress, speech pack and audio cache go here.
+        #[arg(long)]
+        data_dir: std::path::PathBuf,
+        /// The built frontend (`frontend/dist`).
+        #[arg(long = "static")]
+        static_dir: Option<std::path::PathBuf>,
+        #[arg(long, default_value = "127.0.0.1:8080")]
+        bind: SocketAddr,
+        /// The address the browser uses, when not `http://<bind>` (Docker port mapping).
+        #[arg(long)]
+        origin: Option<String>,
+    },
     /// Apply pending database migrations and exit.
     Migrate {
         #[arg(long, env = "DATABASE_URL")]
@@ -75,13 +93,16 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .context("connecting to the database")?;
             let state = api::AppState {
-                auth: AuthService::new(
-                    Arc::new(PgUserRepository::new(pool.clone())),
-                    Arc::new(PgSessionRepository::new(pool.clone())),
-                    Arc::new(Argon2Hasher),
-                    Arc::new(SystemClock),
-                    Arc::new(OsTokenGenerator),
-                ),
+                accounts: api::Accounts::Sessions {
+                    auth: AuthService::new(
+                        Arc::new(PgUserRepository::new(pool.clone())),
+                        Arc::new(PgSessionRepository::new(pool.clone())),
+                        Arc::new(Argon2Hasher),
+                        Arc::new(SystemClock),
+                        Arc::new(OsTokenGenerator),
+                    ),
+                    cookie_secure,
+                },
                 endings: EndingsGame::new(
                     Arc::new(PgExerciseRepository::new(pool.clone())),
                     Arc::new(PgAttemptRepository::new(pool)),
@@ -90,13 +111,33 @@ async fn main() -> anyhow::Result<()> {
                     Arc::new(PiperSynthesizer::new(&tts_url, &tts_voice)),
                     Arc::new(FsAudioCache::new(speech_cache_dir)),
                 ),
-                cookie_secure,
+                speech_pack: None,
             };
             let listener = tokio::net::TcpListener::bind(bind_addr).await?;
             tracing::info!(%bind_addr, "listening");
-            axum::serve(listener, api::router(state))
+            axum::serve(listener, api::router(state, None))
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
+        }
+        Command::ServeLocal {
+            lexicon,
+            data_dir,
+            static_dir,
+            bind,
+            origin,
+        } => {
+            let local = server::start_local(server::LocalConfig {
+                lexicon,
+                data_dir,
+                static_dir,
+                bind,
+                origin,
+            })
+            .await?;
+            tokio::select! {
+                result = local.task => result??,
+                () = shutdown_signal() => {}
+            }
         }
         Command::Migrate { database_url } => {
             let pool = infrastructure::connect(&database_url)

@@ -1,10 +1,15 @@
-//! Adapters for the application ports: Postgres repositories, password hashing, etc.
+//! Adapters for the application ports: Postgres and SQLite repositories, password hashing, etc.
 
 pub mod games;
 pub mod lexicon;
 pub mod security;
 pub mod speech;
+pub mod speech_pack;
+pub mod sqlite;
 pub mod users;
+
+#[cfg(test)]
+mod contract;
 
 use sqlx::postgres::{PgPool, PgPoolOptions};
 

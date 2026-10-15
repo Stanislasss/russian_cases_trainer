@@ -2,6 +2,7 @@
 //! OpenRussian.org (CC BY-SA), hand-written pronouns and surnames, French
 //! translations and Russian definitions from Wiktionary (CC BY-SA).
 //! Safe to re-run: words are matched on their source id and updated in place.
+//! With `--sqlite <file>` it writes the desktop app's word list there instead.
 
 mod curated;
 mod declension;
@@ -20,8 +21,11 @@ use tracing_subscriber::EnvFilter;
 #[derive(Parser)]
 #[command(about = "Import the lexicon")]
 struct Cli {
-    #[arg(long, env = "DATABASE_URL")]
-    database_url: String,
+    #[arg(long, env = "DATABASE_URL", required_unless_present = "sqlite")]
+    database_url: Option<String>,
+    /// Write the desktop app's word list (SQLite) to this file instead of Postgres.
+    #[arg(long)]
+    sqlite: Option<PathBuf>,
     /// Where downloaded files are cached.
     #[arg(long, env = "IMPORT_DATA_DIR", default_value = "data")]
     data_dir: PathBuf,
@@ -94,7 +98,20 @@ async fn main() -> anyhow::Result<()> {
     }
 
     log_summary(&lexemes);
-    let pool = infrastructure::connect(&cli.database_url).await?;
+    if let Some(path) = &cli.sqlite {
+        let words = infrastructure::sqlite::lexicon::write_lexicon(path, &lexemes)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))
+            .with_context(|| format!("writing {}", path.display()))?;
+        let size = tokio::fs::metadata(path).await?.len();
+        tracing::info!(words, mib = size / (1 << 20), path = %path.display(), "word list written");
+        return Ok(());
+    }
+    let database_url = cli
+        .database_url
+        .as_deref()
+        .expect("required without --sqlite");
+    let pool = infrastructure::connect(database_url).await?;
     let mut tx = pool.begin().await?;
     for (i, batch) in lexemes.chunks(cli.batch_size.max(1)).enumerate() {
         infrastructure::lexicon::upsert_lexemes(&mut tx, batch).await?;

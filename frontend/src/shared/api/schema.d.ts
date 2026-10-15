@@ -55,6 +55,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/config': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** What this installation offers. */
+    get: operations['config']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/games/endings/attempts': {
     parameters: {
       query?: never
@@ -139,6 +156,27 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/speech/pack': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Desktop app: starts downloading the speech pack. Follow its progress in
+     *     `/api/config`.
+     */
+    post: operations['install_pack']
+    /** Desktop app: deletes the speech pack. */
+    delete: operations['remove_pack']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
@@ -148,6 +186,11 @@ export interface components {
      * @enum {string}
      */
     AnswerType: 'ending' | 'whole_form'
+    AppConfig: {
+      /** @description Accounts with login (web); false in the desktop app, which has one local user. */
+      accounts: boolean
+      speech: components['schemas']['SpeechStatus']
+    }
     /**
      * @description How a word declines; the rules pages have a table per paradigm.
      * @enum {string}
@@ -238,6 +281,7 @@ export interface components {
       | 'invalid_game_request'
       | 'invalid_speech_text'
       | 'speech_unavailable'
+      | 'not_found'
       | 'internal'
     /** @enum {string} */
     GrammaticalCase:
@@ -285,6 +329,31 @@ export interface components {
       password: string
       ui_locale?: null | components['schemas']['UiLocale']
     }
+    /** @description Whether words can be pronounced. */
+    SpeechStatus:
+      | {
+          /** @enum {string} */
+          state: 'service'
+        }
+      | {
+          /** @enum {string} */
+          state: 'not_installed'
+        }
+      | {
+          /** Format: float */
+          progress: number
+          /** @enum {string} */
+          state: 'installing'
+        }
+      | {
+          /** @enum {string} */
+          state: 'ready'
+        }
+      | {
+          error: string
+          /** @enum {string} */
+          state: 'failed'
+        }
     /** @description A word's meanings per UI language; missing where the dictionaries have none. */
     Translations: {
       de?: string | null
@@ -397,6 +466,25 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  config: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AppConfig']
         }
       }
     }
@@ -551,6 +639,58 @@ export interface operations {
       }
       /** @description speech synthesis is unavailable */
       503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  install_pack: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description not the desktop app */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  remove_pack: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description not the desktop app */
+      404: {
         headers: {
           [name: string]: unknown
         }

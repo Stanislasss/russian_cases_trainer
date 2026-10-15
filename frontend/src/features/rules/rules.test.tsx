@@ -35,10 +35,11 @@ test('a case page has uses, ending tables and exceptions', () => {
   )
 })
 
-test('examples can be listened to', () => {
+test('examples can be listened to', async () => {
   const spoken = mockAudio()
   renderAt('/rules/dative')
-  fireEvent.click(screen.getByRole('button', { name: 'Listen: Мне хо́лодно.' }))
+  // once the server has said it can speak
+  fireEvent.click(await screen.findByRole('button', { name: 'Listen: Мне хо́лодно.' }))
   expect(spoken).toEqual(['Мне хо́лодно.'])
 })
 

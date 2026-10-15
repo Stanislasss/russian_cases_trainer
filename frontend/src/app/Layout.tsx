@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { Link, Outlet } from 'react-router'
 import { UserMenu } from '../features/auth/UserMenu'
+import { useConfig } from '../shared/config/config'
 import { LanguageSwitcher } from '../shared/i18n/LanguageSwitcher'
 
 export function Layout() {
   const { t } = useTranslation()
+  // The desktop app has settings (the speech pack) instead of accounts.
+  const desktop = useConfig().data?.accounts === false
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -20,6 +23,11 @@ export function Layout() {
             <Link to="/play/endings" className="text-sm hover:underline">
               {t('nav.play')}
             </Link>
+            {desktop && (
+              <Link to="/settings" className="text-sm hover:underline">
+                {t('nav.settings')}
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-4">
             <UserMenu />

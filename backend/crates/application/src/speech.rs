@@ -38,6 +38,32 @@ pub trait AudioCache: Send + Sync {
     async fn put(&self, key: &str, audio: &[u8]) -> Result<(), BoxError>;
 }
 
+/// The desktop app's optional speech pack (Piper and a voice), downloaded on
+/// request. Its synthesizer is unavailable until it's installed.
+#[async_trait]
+pub trait SpeechPack: Send + Sync {
+    fn status(&self) -> PackStatus;
+    /// Downloads and installs the pack in the background; does nothing while
+    /// that's already happening or when it's installed.
+    fn install(&self);
+    /// Deletes the installed pack.
+    async fn remove(&self) -> Result<(), BoxError>;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PackStatus {
+    NotInstalled,
+    /// `progress` goes from 0 to 1.
+    Installing {
+        progress: f32,
+    },
+    Ready,
+    /// The last installation failed; installing again is possible.
+    Failed {
+        error: String,
+    },
+}
+
 #[derive(Clone)]
 pub struct SpeechService {
     synthesizer: Arc<dyn SpeechSynthesizer>,

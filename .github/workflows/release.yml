@@ -1,0 +1,123 @@
+# Builds the desktop app for Windows, macOS and Linux when a version tag is
+# pushed, and publishes the installers plus the auto-update manifest as a
+# *draft* release in the public releases repository. Publishing the draft
+# makes it the version that installed apps update to.
+#
+# Releasing: set `version` in backend/Cargo.toml, commit, then tag `v<version>`.
+#
+# Secrets (repository settings → Secrets and variables → Actions):
+# - TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: signs updates
+#   (`npx @tauri-apps/cli signer generate`); its public key is in tauri.conf.json.
+# - RELEASES_REPO_TOKEN: fine-grained token with "Contents: read and write" on
+#   the releases repository only.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  RELEASES_OWNER: Stanislasss
+  RELEASES_REPO: russian-cases-trainer-releases
+
+jobs:
+  lexicon:
+    name: Word list
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag matches the app version
+        run: |
+          version=$(grep -m1 '^version' backend/Cargo.toml | cut -d '"' -f2)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME, but backend/Cargo.toml says $version"
+            exit 1
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+          key: importer
+      # OpenRussian and Wiktionary downloads (about 1.9 GB), kept between releases.
+      - uses: actions/cache@v4
+        with:
+          path: import-data
+          key: import-data-${{ hashFiles('backend/crates/importer/src/openrussian.rs', 'backend/crates/importer/src/wiktionary.rs') }}
+          restore-keys: import-data-
+      - name: Build lexicon.sqlite
+        working-directory: backend
+        run: cargo run --release -p importer -- --sqlite ../build/lexicon.sqlite --data-dir ../import-data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lexicon
+          path: build/lexicon.sqlite
+
+  bundle:
+    name: ${{ matrix.name }}
+    needs: lexicon
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - name: macOS (Apple silicon)
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - name: macOS (Intel)
+            os: macos-latest
+            target: x86_64-apple-darwin
+          - name: Linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Webview libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libsoup-3.0-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build the frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: lexicon
+          path: build
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+          key: ${{ matrix.target }}
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: backend/crates/desktop
+          tauriScript: npx --yes @tauri-apps/cli@2
+          args: --target ${{ matrix.target }}
+          owner: ${{ env.RELEASES_OWNER }}
+          repo: ${{ env.RELEASES_REPO }}
+          tagName: ${{ github.ref_name }}
+          releaseName: Russian Cases Trainer ${{ github.ref_name }}
+          releaseBody: |
+            Download the file for your system below. The app isn't signed yet, so the
+            first launch shows a warning; see the README for how to open it anyway.
+          releaseDraft: true
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true

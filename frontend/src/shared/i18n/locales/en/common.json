@@ -52,7 +52,8 @@
   },
   "nav": {
     "play": "Play",
-    "rules": "Rules"
+    "rules": "Rules",
+    "settings": "Settings"
   },
   "cases": {
     "nominative": "Nominative",
@@ -132,5 +133,20 @@
     "next": "Next",
     "nextWordDelay": "Pause after a correct answer",
     "seconds": "{{count, number}} s"
+  },
+  "settings": {
+    "title": "Settings",
+    "speech": {
+      "title": "Pronunciation",
+      "about": "Hear words and examples spoken by the voice “Irina”. This needs the speech pack (about 70 MB), downloaded once.",
+      "service": "Pronunciation is provided by the server.",
+      "install": "Download the speech pack",
+      "retry": "Try again",
+      "failed": "The download failed: {{error}}",
+      "installing": "Downloading the speech pack…",
+      "ready": "The speech pack is installed.",
+      "remove": "Remove it",
+      "licence": "The speech pack contains the free software Piper and eSpeak NG (GPL-3.0):"
+    }
   }
 }

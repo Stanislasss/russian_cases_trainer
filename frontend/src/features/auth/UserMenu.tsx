@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '../../shared/ui/Button'
+import { useConfig } from '../../shared/config/config'
 import { useLogout, useSession } from '../../shared/session/session'
 
 export function UserMenu() {
@@ -8,8 +9,10 @@ export function UserMenu() {
   const navigate = useNavigate()
   const session = useSession()
   const logout = useLogout()
+  const config = useConfig()
 
-  if (session.isPending) return null
+  // The desktop app has one local user, who never logs in or out.
+  if (session.isPending || config.data?.accounts !== true) return null
   if (!session.data) {
     return (
       <nav className="flex items-center gap-3 text-sm">

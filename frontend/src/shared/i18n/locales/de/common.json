@@ -52,7 +52,8 @@
   },
   "nav": {
     "play": "Spielen",
-    "rules": "Regeln"
+    "rules": "Regeln",
+    "settings": "Einstellungen"
   },
   "cases": {
     "nominative": "Nominativ",
@@ -132,5 +133,20 @@
     "next": "Weiter",
     "nextWordDelay": "Pause nach einer richtigen Antwort",
     "seconds": "{{count, number}} s"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "speech": {
+      "title": "Aussprache",
+      "about": "Hör dir Wörter und Beispiele an, gesprochen von der Stimme „Irina“. Dafür wird das Sprachpaket (etwa 70 MB) einmal heruntergeladen.",
+      "service": "Die Aussprache kommt vom Server.",
+      "install": "Sprachpaket herunterladen",
+      "retry": "Erneut versuchen",
+      "failed": "Der Download ist fehlgeschlagen: {{error}}",
+      "installing": "Das Sprachpaket wird heruntergeladen…",
+      "ready": "Das Sprachpaket ist installiert.",
+      "remove": "Entfernen",
+      "licence": "Das Sprachpaket enthält die freie Software Piper und eSpeak NG (GPL-3.0):"
+    }
   }
 }

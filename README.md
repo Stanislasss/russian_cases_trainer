@@ -1,12 +1,12 @@
 # Russian Cases Trainer
 
-A web app for practising the six Russian grammatical cases: browse the declension rules case by case, then drill them by dragging each word onto the right ending.
+An app for practising the six Russian grammatical cases: browse the declension rules case by case, then drill them by dragging each word onto the right ending. It runs as a web app or as a [desktop app](#desktop-app) for Windows, macOS and Linux.
 
 - **Backend:** Rust (axum + sqlx), hexagonal workspace in [`backend/`](backend)
 - **Frontend:** React + TypeScript + Vite in [`frontend/`](frontend)
-- **Database:** PostgreSQL 17
+- **Database:** PostgreSQL 17 (web), SQLite (desktop)
 - **UI languages:** English, French, German, Russian
-- **Accounts:** email and password; guests can play, but results are saved only when logged in
+- **Accounts (web):** email and password; guests can play, but results are saved only when logged in. The desktop app has one local player whose results are always saved.
 
 ## Getting started
 
@@ -33,6 +33,29 @@ The game (`/play/endings`) shows a word in its dictionary form and the case to p
 
 Pronunciations come from the `tts` service, a local [Piper](https://github.com/OHF-Voice/piper1-gpl) server (GPL-3.0) with four Russian voices. Compare them on http://localhost:5002 and set `TTS_VOICE` in `.env` (then `just up`). Audio is cached in the `speech-cache` volume; without the service the game simply has no sound. The 🔊 buttons and the automatic reading in Practice can be muted.
 
+## Desktop app
+
+A [Tauri](https://tauri.app) app (`backend/crates/desktop`) that runs the same backend inside itself on `127.0.0.1` and shows the frontend in the system's webview. It works offline and needs no Postgres:
+
+- **Words:** `lexicon.sqlite`, a read-only SQLite word list shipped with the app (about 25 MB, only the words some level can ask), written by `importer --sqlite`.
+- **Progress:** `progress.sqlite` in the user's app-data folder, with one local player; there are no accounts.
+- **Pronunciation is optional:** Settings → Pronunciation downloads the *speech pack* (about 70 MB): native Piper, the Russian espeak-ng data of piper-tts (Piper's own ignores stress marks) and the voice ru_RU-irina-medium. Until then there are no 🔊 buttons. The pack's download addresses and checksums are in `backend/speech-pack.json`.
+- **Updates:** at start, the app looks for a newer release and offers to install it.
+
+Installers come from the public [releases repository](https://github.com/Stanislasss/russian-cases-trainer-releases). They aren't signed yet, so the first launch shows a warning: on Windows click *More info → Run anyway*; on macOS right-click the app → *Open*.
+
+### Building and releasing
+
+Your machine doesn't need a Rust toolchain: everything but the window runs in Docker, and the app itself is built on GitHub Actions.
+
+- `just lexicon-sqlite` writes `build/lexicon.sqlite` (same downloads as `just import`).
+- `just serve-local` builds the frontend and runs the desktop backend in Docker on http://localhost:8090: SQLite, the local player, the settings page.
+- **CI** (`.github/workflows/ci.yml`) runs the backend and frontend checks and compiles the desktop app on Linux.
+- **Release** (`release.yml`): set `version` in `backend/Cargo.toml`, commit, push the tag `v<version>`. It builds the word list, then the installers for Windows, macOS (Apple silicon and Intel) and Linux, and creates a **draft** release in the releases repository. Publishing the draft makes installed apps update to it.
+- **Speech pack** (`speech-pack.yml`, run by hand): packs Piper per system, checks on each one that stress marks are honoured, publishes the parts, and prints the `speech-pack.json` to commit.
+
+One-time setup: create the public repository `russian-cases-trainer-releases`, generate the updater key with `npx @tauri-apps/cli signer generate` (put its public key in `backend/crates/desktop/tauri.conf.json`, keep the private key and its password backed up offline: without them installed apps can't be updated), and add the repository secrets `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and `RELEASES_REPO_TOKEN` (a fine-grained token with *Contents: read and write* on the releases repository only).
+
 ## Commands
 
 | Command | What it does |
@@ -45,6 +68,8 @@ Pronunciations come from the `tts` service, a local [Piper](https://github.com/O
 | `just check` | Backend fmt check + clippy + tests |
 | `just cargo <args>` | Any cargo command in a Rust container |
 | `just gen-api` | Regenerate the TypeScript API types from the running backend |
+| `just lexicon-sqlite` | Write the desktop app's word list to `build/lexicon.sqlite` |
+| `just serve-local` | Run the desktop app's backend in Docker on http://localhost:8090 |
 
 Frontend checks run natively from `frontend/`: `npm run typecheck`, `npm run lint`, `npm test`.
 
@@ -64,10 +89,13 @@ The backend tags every game word with its pattern (`domain::rules::paradigm`), s
 |---|---|
 | `domain` | Grammar types and pure logic, no I/O |
 | `application` | Use cases and the ports (traits) they depend on |
-| `infrastructure` | Postgres repositories, password hashing, migrations |
+| `infrastructure` | Postgres and SQLite repositories, the speech pack, password hashing, migrations |
 | `api` | axum routes, DTOs, OpenAPI document |
-| `server` | Binary: config and wiring (`serve`, `migrate`, `print-openapi`) |
-| `importer` | Binary: loads the OpenRussian word lists, the Wiktionary translations and the hand-written words |
+| `server` | Binary: config and wiring (`serve`, `serve-local`, `migrate`, `print-openapi`); library: the desktop backend |
+| `importer` | Binary: loads the OpenRussian word lists, the Wiktionary translations and the hand-written words (into Postgres, or `--sqlite`) |
+| `desktop` | The Tauri app; built in CI only |
+
+The Postgres and SQLite repositories share their tests (`infrastructure/src/contract.rs`), so both behave the same.
 
 ## Data attribution
 
@@ -77,4 +105,4 @@ The backend tags every game word with its pattern (`domain::rules::paradigm`), s
 
 ## License
 
-Apache-2.0
+Apache-2.0. The desktop app's speech pack, downloaded separately, contains Piper and eSpeak NG (GPL-3.0).

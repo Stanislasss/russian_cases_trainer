@@ -21,6 +21,15 @@ migrate:
 import:
     docker compose --profile tools run --rm --build importer
 
+# Write the desktop app's word list to build/lexicon.sqlite (same downloads as `import`)
+lexicon-sqlite:
+    docker compose --profile tools run --rm --build --no-deps -v ./build:/out importer importer --sqlite /out/lexicon.sqlite
+
+# The desktop app's backend in Docker, on http://localhost:8090 (needs `just lexicon-sqlite`)
+serve-local:
+    cd frontend; npm run build
+    docker compose --profile tools up -d --build local
+
 # DB web UI on http://localhost:8081
 adminer:
     docker compose --profile tools up -d adminer
@@ -30,12 +39,12 @@ cargo *args:
     docker compose --profile tools run --rm cargo {{args}}
 
 test:
-    just cargo test --workspace
+    just cargo test --workspace --exclude desktop
 
 # fmt check + clippy + tests, as CI runs them
 check:
     just cargo fmt --all --check
-    just cargo clippy --workspace --all-targets -- -D warnings
+    just cargo clippy --workspace --exclude desktop --all-targets -- -D warnings
     just test
 
 # Regenerate the typed API client from the running backend's OpenAPI spec

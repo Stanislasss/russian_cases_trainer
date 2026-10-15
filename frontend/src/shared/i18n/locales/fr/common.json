@@ -52,7 +52,8 @@
   },
   "nav": {
     "play": "Jouer",
-    "rules": "Règles"
+    "rules": "Règles",
+    "settings": "Paramètres"
   },
   "cases": {
     "nominative": "Nominatif",
@@ -132,5 +133,20 @@
     "next": "Suivant",
     "nextWordDelay": "Pause après une bonne réponse",
     "seconds": "{{count, number}} s"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "speech": {
+      "title": "Prononciation",
+      "about": "Écoutez les mots et les exemples prononcés par la voix « Irina ». Il faut pour cela le pack vocal (environ 70 Mo), téléchargé une seule fois.",
+      "service": "La prononciation est fournie par le serveur.",
+      "install": "Télécharger le pack vocal",
+      "retry": "Réessayer",
+      "failed": "Le téléchargement a échoué : {{error}}",
+      "installing": "Téléchargement du pack vocal…",
+      "ready": "Le pack vocal est installé.",
+      "remove": "Le supprimer",
+      "licence": "Le pack vocal contient les logiciels libres Piper et eSpeak NG (GPL-3.0) :"
+    }
   }
 }

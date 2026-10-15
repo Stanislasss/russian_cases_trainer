@@ -1,1 +1,5 @@
 .env
+
+# Desktop app: the word list (`just lexicon-sqlite`) and Tauri's generated schemas
+/build/
+/backend/crates/desktop/gen/

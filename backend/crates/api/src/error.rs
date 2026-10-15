@@ -21,6 +21,10 @@ pub enum AppError {
     Speech(#[from] SpeechError),
     #[error("not logged in")]
     Unauthenticated,
+    #[error("no such API route")]
+    NotFound,
+    #[error(transparent)]
+    Internal(application::ports::BoxError),
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -45,6 +49,7 @@ pub enum ErrorCode {
     InvalidGameRequest,
     InvalidSpeechText,
     SpeechUnavailable,
+    NotFound,
     Internal,
 }
 
@@ -65,6 +70,8 @@ impl AppError {
                 (StatusCode::UNAUTHORIZED, InvalidCredentials)
             }
             AppError::Unauthenticated => (StatusCode::UNAUTHORIZED, Unauthenticated),
+            AppError::NotFound => (StatusCode::NOT_FOUND, NotFound),
+            AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, Internal),
             AppError::Game(GameError::Internal(_)) => (StatusCode::INTERNAL_SERVER_ERROR, Internal),
             AppError::Game(_) => (StatusCode::UNPROCESSABLE_ENTITY, InvalidGameRequest),
             AppError::Speech(SpeechError::InvalidText) => {
@@ -100,4 +107,9 @@ impl IntoResponse for AppError {
         )
             .into_response()
     }
+}
+
+/// Unknown `/api/…` paths, so they don't get the frontend's index.html.
+pub async fn not_found() -> AppError {
+    AppError::NotFound
 }

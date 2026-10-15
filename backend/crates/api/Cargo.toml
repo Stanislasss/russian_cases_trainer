@@ -21,7 +21,12 @@ utoipa.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
+http-body-util = "0.1"
 serde_json.workspace = true
+tempfile = "3"
+tokio.workspace = true
+tower = { version = "0.5", features = ["util"] }
 
 [lints]
 workspace = true

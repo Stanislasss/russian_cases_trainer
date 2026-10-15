@@ -1,17 +1,23 @@
-//! Pronunciation route.
+//! Pronunciation route, and the desktop app's speech pack.
 
 use axum::extract::{Query, State};
-use axum::http::header;
+use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;
-use axum::{Router, routing::get};
+use axum::{Router, routing::get, routing::post};
 use serde::Deserialize;
 use utoipa::IntoParams;
 
 use crate::AppState;
 use crate::error::{AppError, Problem};
 
-pub fn routes() -> Router<AppState> {
-    Router::new().route("/api/speech", get(speech))
+/// `/api/speech`, plus installing and removing the pack where there is one.
+pub fn routes(speech_pack: bool) -> Router<AppState> {
+    let router = Router::new().route("/api/speech", get(speech));
+    if speech_pack {
+        router.route("/api/speech/pack", post(install_pack).delete(remove_pack))
+    } else {
+        router
+    }
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
@@ -43,4 +49,26 @@ async fn speech(
         ],
         audio,
     ))
+}
+
+/// Desktop app: starts downloading the speech pack. Follow its progress in
+/// `/api/config`.
+#[utoipa::path(
+    post, path = "/api/speech/pack", tag = "speech",
+    responses((status = 202), (status = 404, description = "not the desktop app", body = Problem))
+)]
+pub async fn install_pack(State(state): State<AppState>) -> Result<StatusCode, AppError> {
+    state.speech_pack.ok_or(AppError::NotFound)?.install();
+    Ok(StatusCode::ACCEPTED)
+}
+
+/// Desktop app: deletes the speech pack.
+#[utoipa::path(
+    delete, path = "/api/speech/pack", tag = "speech",
+    responses((status = 204), (status = 404, description = "not the desktop app", body = Problem))
+)]
+pub async fn remove_pack(State(state): State<AppState>) -> Result<StatusCode, AppError> {
+    let pack = state.speech_pack.ok_or(AppError::NotFound)?;
+    pack.remove().await.map_err(AppError::Internal)?;
+    Ok(StatusCode::NO_CONTENT)
 }
