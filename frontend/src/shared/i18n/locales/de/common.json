@@ -5,7 +5,8 @@
     "attribution": "Wortdaten von"
   },
   "common": {
-    "loading": "Wird geladen…"
+    "loading": "Wird geladen…",
+    "close": "Schließen"
   },
   "languages": {
     "en": "English",

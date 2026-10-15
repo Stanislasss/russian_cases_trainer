@@ -7,10 +7,10 @@ import {
   type SpellingRule,
 } from '../../shared/grammar/cases'
 import { CASES } from '../../shared/grammar/paradigms'
-import { Listen } from '../../shared/grammar/RuleCard'
+import { Listen } from '../../shared/grammar/Listen'
 import { useGrammarTexts } from '../../shared/grammar/texts'
 import { useSpeech } from '../../shared/speech/useSpeech'
-import { PersonalPronounsTable } from './tables'
+import { PersonalPronounsTable } from '../../shared/grammar/tables'
 
 const SPELLING_RULES: SpellingRule[] = ['yi', 'unstressedE', 'au']
 

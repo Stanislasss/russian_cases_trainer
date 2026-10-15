@@ -5,7 +5,8 @@
     "attribution": "Données lexicales :"
   },
   "common": {
-    "loading": "Chargement…"
+    "loading": "Chargement…",
+    "close": "Fermer"
   },
   "languages": {
     "en": "English",

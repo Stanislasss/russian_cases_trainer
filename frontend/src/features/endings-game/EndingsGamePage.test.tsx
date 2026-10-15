@@ -294,6 +294,32 @@ describe('explanations', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
   })
 
+  test("the case's rules open over the game, which goes on where it was", async () => {
+    mockApi({
+      'POST /api/games/endings/batch': () =>
+        json(200, { answer_kind: 'ending', zones: ['ом', 'ой'], items: [kniga, okno, stol] }),
+    })
+    renderAt('/play/endings')
+    fireEvent.click(screen.getByLabelText('Instrumental'))
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    await screen.findByText('кни́га')
+    fireEvent.click(screen.getByRole('button', { name: '-ом' })) // wrong
+
+    fireEvent.click(screen.getByRole('button', { name: /All the rules for this case/ }))
+    const rules = screen.getByRole('dialog', { name: 'Instrumental' })
+    expect(within(rules).getByRole('heading', { name: 'Instrumental' })).toBeInTheDocument()
+    // Enter belongs to the dialog now, not to the game behind it.
+    fireEvent.keyDown(within(rules).getByRole('button', { name: 'Close' }), { key: 'Enter' })
+    expect(screen.queryByText('окно́')).not.toBeInTheDocument()
+
+    fireEvent.click(within(rules).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('1 / 10')).toBeInTheDocument()
+    expect(screen.getByText('кни́га')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByText('окно́')).toBeInTheDocument()
+  })
+
   test('arcade mistakes are explained in the summary', async () => {
     mockApi({ 'POST /api/games/endings/batch': batch })
     renderAt('/play/endings')
@@ -308,9 +334,11 @@ describe('explanations', () => {
 
     await screen.findByRole('heading', { name: 'Results' })
     fireEvent.click(screen.getByText('кни́гой', { selector: 'summary strong' })) // open the mistake
-    expect(
-      await screen.findByRole('link', { name: /All the rules for this case/ }),
-    ).toHaveAttribute('href', '/rules/instrumental#noun_a')
+    fireEvent.click(await screen.findByRole('button', { name: /All the rules for this case/ }))
+    expect(screen.getByRole('dialog', { name: 'Instrumental' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Results' })).toBeInTheDocument()
   })
 
   test('a rules page can open the game on its case', async () => {

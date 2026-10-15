@@ -5,7 +5,8 @@
     "attribution": "Word data from"
   },
   "common": {
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "close": "Close"
   },
   "languages": {
     "en": "English",

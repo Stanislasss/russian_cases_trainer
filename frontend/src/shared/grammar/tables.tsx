@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { endingLabel } from '../../shared/grammar/format'
+import { endingLabel } from './format'
 import {
   type Case,
   CASES,
@@ -8,10 +8,10 @@ import {
   PERSONAL_PRONOUNS,
   TABLES,
   tablesOf,
-} from '../../shared/grammar/paradigms'
-import { Listen } from '../../shared/grammar/RuleCard'
-import { useGrammarTexts } from '../../shared/grammar/texts'
-import { useSpeech } from '../../shared/speech/useSpeech'
+} from './paradigms'
+import { Listen } from './Listen'
+import { useGrammarTexts } from './texts'
+import { useSpeech } from '../speech/useSpeech'
 
 /** The endings of one case for every paradigm of a group; rows are linkable (#paradigm). */
 export function EndingsTable({ group, gameCase }: { group: Group; gameCase: Case }) {

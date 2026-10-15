@@ -5,7 +5,8 @@
     "attribution": "Словарные данные:"
   },
   "common": {
-    "loading": "Загрузка…"
+    "loading": "Загрузка…",
+    "close": "Закрыть"
   },
   "languages": {
     "en": "English",

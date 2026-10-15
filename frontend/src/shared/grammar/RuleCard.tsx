@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Modal } from '../ui/Modal'
+import { CaseRules } from './CaseRules'
 import { explain, type Item } from './explain'
-import { answerLabel, type AnswerKind, endingLabel, speakable } from './format'
+import { answerLabel, type AnswerKind, endingLabel } from './format'
+import { Listen } from './Listen'
 import { type Case, CASES } from './paradigms'
 import { useGrammarTexts } from './texts'
 
@@ -22,6 +25,8 @@ export function RuleCard({ item, chosen, gameCase, answerKind, speak }: Props) {
   const e = explain(item, chosen, gameCase, answerKind)
   const chosenLabel = answerLabel(chosen, answerKind)
   const caseName = (c: Case) => t(`cases.${c}`)
+  // The case's rules open over the game, so it carries on where it was.
+  const [rulesOpen, setRulesOpen] = useState(false)
 
   return (
     <aside className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
@@ -94,28 +99,18 @@ export function RuleCard({ item, chosen, gameCase, answerKind, speak }: Props) {
       )}
       {!e.paradigm && <p>{g.explanation.noTable}</p>}
 
-      <Link
-        to={`/rules/${gameCase}${e.paradigm ? `#${e.paradigm}` : ''}`}
+      <button
+        type="button"
+        onClick={() => setRulesOpen(true)}
         className="inline-block text-sky-700 underline"
       >
         {g.readMore} →
-      </Link>
+      </button>
+      {rulesOpen && (
+        <Modal title={caseName(gameCase)} onClose={() => setRulesOpen(false)}>
+          <CaseRules gameCase={gameCase} anchor={e.paradigm ?? undefined} />
+        </Modal>
+      )}
     </aside>
-  )
-}
-
-/** A small 🔊 button; also used by the rules pages. */
-export function Listen({ text, speak }: { text: string; speak: (text: string) => void }) {
-  const { t } = useTranslation()
-  return (
-    <button
-      type="button"
-      onClick={() => speak(speakable(text))}
-      aria-label={`${t('game.listen')}: ${text}`}
-      title={t('game.listen')}
-      className="ml-1 rounded px-1 align-middle hover:bg-slate-200"
-    >
-      🔊
-    </button>
   )
 }
