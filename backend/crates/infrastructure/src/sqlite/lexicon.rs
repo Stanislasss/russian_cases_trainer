@@ -51,6 +51,9 @@ pub async fn write_lexicon(path: &Path, lexemes: &[NewLexeme]) -> Result<usize, 
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
         _ => {}
     }
+    if let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        tokio::fs::create_dir_all(dir).await?;
+    }
     let mut conn = SqliteConnectOptions::new()
         .filename(path)
         .create_if_missing(true)
@@ -133,5 +136,13 @@ mod tests {
         assert_ne!(id, lexeme_id("openrussian", "124"));
         assert_ne!(lexeme_id("a", "bc"), lexeme_id("ab", "c"));
         assert!((1..=1 << 52).contains(&id));
+    }
+
+    #[tokio::test]
+    async fn missing_folders_are_created() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("build/new/lexicon.sqlite");
+        assert_eq!(write_lexicon(&path, &[]).await.unwrap(), 0);
+        assert!(path.is_file());
     }
 }

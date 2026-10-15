@@ -1,9 +1,9 @@
 {
   "piper": {
-    "linux-x86_64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v1/piper-linux-x86_64.zip", "sha256": "74c2cd00179abcd96e0dfb2030fa246fd5aab939f9eb9bec02f491067280a80f", "size": 20496184 },
-    "macos-aarch64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v1/piper-macos-aarch64.zip", "sha256": "5dfde6ec7f38c105c172193715fd6a4ddd74b9f23afc903b0ed6847378c401f9", "size": 13010808 },
-    "macos-x86_64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v1/piper-macos-x86_64.zip", "sha256": "61206909fe11f8b046c578fbef291715dc64ae784ca24ab9023769eb608dfb58", "size": 13010808 },
-    "windows-x86_64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v1/piper-windows-x86_64.zip", "sha256": "f4c6f4c3fbcf1ad07e8b38b919f3649ff7a12527b764e0da8c530bd3fb445b6e", "size": 9118224 }
+    "linux-x86_64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v2/piper-linux-x86_64.zip", "sha256": "a6344f18a2801bbd79caba3ee9dee91b00a8f76f218f1511a4cc13a14a5b1d24", "size": 20496184 },
+    "macos-aarch64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v2/piper-macos-aarch64.zip", "sha256": "44245d308f02a131f9bb0f2aff3c145411759e7f9d4e6be3bbce4f0fff52dec9", "size": 11663505 },
+    "macos-x86_64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v2/piper-macos-x86_64.zip", "sha256": "f004a8e58182e177c69bd43997321e76eda85105d38ca8283b9410c80f5359b8", "size": 13010808 },
+    "windows-x86_64": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v2/piper-windows-x86_64.zip", "sha256": "e83fcc358151a81a3ec6a1f45aa6d87b0c1670ef02f61b583c42906500ae9a3e", "size": 9118224 }
   },
-  "voice": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v1/voice-ru_RU-irina-medium.zip", "sha256": "3d5ffdf5b9e5c4437d19adbf36bc701b6199094373a90971f9f7689ff2cb2067", "size": 58332260 }
+  "voice": { "url": "https://github.com/Stanislasss/russian-cases-trainer-releases/releases/download/speech-v2/voice-ru_RU-irina-medium.zip", "sha256": "3b59ca1cb28216f7749a9fa54e04ae4cbfbaa9c8d4447097b707cba73e60d141", "size": 58332260 }
 }
