@@ -7,7 +7,10 @@ pub mod lexicon;
 
 use std::path::Path;
 
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
+use sqlx::sqlite::{
+    SqliteConnectOptions, SqliteConnection, SqliteJournalMode, SqlitePool, SqlitePoolOptions,
+};
+use sqlx::{ConnectOptions, Connection};
 
 /// Migrations of `progress.sqlite`, embedded at compile time.
 pub static PROGRESS_MIGRATOR: sqlx::migrate::Migrator =
@@ -28,22 +31,18 @@ pub async fn open(lexicon: &Path, progress: &Path) -> Result<SqlitePool, sqlx::E
         .filename(progress)
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal);
+
+    // Once by hand first: the pool would retry a failing ATTACH until it times
+    // out, and report only the timeout.
+    let mut first = options.connect().await?;
+    attach(&mut first, &lexicon).await?;
+    first.close().await?;
+
     let pool = SqlitePoolOptions::new()
         .max_connections(4)
         .after_connect(move |conn, _| {
             let lexicon = lexicon.clone();
-            Box::pin(async move {
-                sqlx::query("ATTACH DATABASE ?1 AS lex")
-                    .bind(lexicon)
-                    .execute(&mut *conn)
-                    .await?;
-                // Read through the OS page cache, shared by all connections,
-                // instead of each connection reading it again.
-                sqlx::query("PRAGMA lex.mmap_size = 268435456")
-                    .execute(&mut *conn)
-                    .await?;
-                Ok(())
-            })
+            Box::pin(async move { attach(conn, &lexicon).await })
         })
         .connect_with(options)
         .await?;
@@ -54,10 +53,33 @@ pub async fn open(lexicon: &Path, progress: &Path) -> Result<SqlitePool, sqlx::E
     Ok(pool)
 }
 
+/// Attaches the word list (a `read_only_uri`) to a connection as `lex`.
+async fn attach(conn: &mut SqliteConnection, lexicon: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("ATTACH DATABASE ?1 AS lex")
+        .bind(lexicon)
+        .execute(&mut *conn)
+        .await?;
+    // SQLite opens it lazily; read it now so a bad file fails here.
+    sqlx::query("SELECT count(*) FROM lex.sqlite_master")
+        .execute(&mut *conn)
+        .await?;
+    // Read through the OS page cache, shared by all connections, instead of
+    // each connection reading it again.
+    sqlx::query("PRAGMA lex.mmap_size = 268435456")
+        .execute(&mut *conn)
+        .await?;
+    Ok(())
+}
+
 /// A `file:` URI that opens `path` read-only and immutable: it lives in the app's
 /// install folder, which may not be writable and never changes while running.
 fn read_only_uri(path: &Path) -> String {
-    let path = path.to_string_lossy().replace('\\', "/");
+    let path = path.to_string_lossy();
+    // Windows hands out extended-length paths (\\?\C:\…), which aren't URIs.
+    let path = path
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&path)
+        .replace('\\', "/");
     // Windows paths (C:/…) need a leading slash: file:/C:/…
     let mut uri = String::from(if path.starts_with('/') {
         "file:"
@@ -91,5 +113,23 @@ mod tests {
             read_only_uri(Path::new(r"C:\Program Files\Trainer\lexicon.sqlite")),
             "file:/C:/Program%20Files/Trainer/lexicon.sqlite?mode=ro&immutable=1"
         );
+        // What Tauri gives on Windows.
+        assert_eq!(
+            read_only_uri(Path::new(
+                r"\\?\C:\Users\me\AppData\Local\Russian Cases Trainer\lexicon.sqlite"
+            )),
+            "file:/C:/Users/me/AppData/Local/Russian%20Cases%20Trainer/lexicon.sqlite?mode=ro&immutable=1"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_word_list_that_cant_be_attached_says_why() {
+        let dir = tempfile::tempdir().unwrap();
+        let lexicon = dir.path().join("lexicon.sqlite");
+        std::fs::write(&lexicon, b"not a database").unwrap();
+        let err = open(&lexicon, &dir.path().join("progress.sqlite"))
+            .await
+            .unwrap_err();
+        assert!(!matches!(err, sqlx::Error::PoolTimedOut), "{err}");
     }
 }
