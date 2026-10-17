@@ -127,3 +127,16 @@ test('the summary lists the mistakes with their explanation', async () => {
   fireEvent.click(screen.getByText('кни́ге'))
   expect(await screen.findByText('Here it’s the Prepositional')).toBeInTheDocument()
 })
+
+test('the noun can be heard, and a wrong ending plays the corrected sentence', async () => {
+  await startRound()
+  fireEvent.click(screen.getByRole('button', { name: 'Listen: кни́га' }))
+  await waitFor(() => expect(spoken).toContain('кни́га'))
+
+  fireEvent.click(screen.getByRole('button', { name: /^Prepositional/ }))
+  fireEvent.click(await screen.findByRole('button', { name: '-и' })) // wrong
+  // The right form is shown and heard, while the rule explains the mistake.
+  expect(await screen.findByText('кни́ге', { selector: 'p[lang=ru] strong' })).toBeInTheDocument()
+  await waitFor(() => expect(spoken).toContain('Я ду́маю о кни́ге.'))
+  expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
+})

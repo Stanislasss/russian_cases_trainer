@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { Listen } from '../../shared/grammar/Listen'
 import { RuleCard } from '../../shared/grammar/RuleCard'
 import { useSession } from '../../shared/session/session'
 import { useSpeech } from '../../shared/speech/useSpeech'
@@ -56,6 +57,12 @@ export function SentenceGamePage() {
   useEffect(() => {
     speakRef.current = speak
   })
+  // A wrong ending: hear how the sentence should sound; the player moves on.
+  const corrected =
+    state.phase === 'playing' && state.step === 'endingMistake' ? state.items[state.index] : null
+  useEffect(() => {
+    if (corrected) void speakRef.current(fullSentence(corrected))
+  }, [corrected])
   useEffect(() => {
     if (!solved) return
     let cancelled = false
@@ -180,8 +187,8 @@ function Summary({
           <h2 className="mb-2 font-semibold">{t('game.summary.mistakes')}</h2>
           <ul className="divide-y divide-slate-200 rounded border border-slate-200 bg-white">
             {mistakes.map((r, i) => (
-              <li key={i} className="px-3 py-2">
-                <details>
+              <li key={i} className="flex items-start gap-2 px-3 py-2">
+                <details className="flex-1">
                   <summary className="cursor-pointer" lang="ru">
                     {r.item.before}
                     <strong>{r.item.word.stressed_form}</strong>
@@ -200,6 +207,7 @@ function Summary({
                     )}
                   </div>
                 </details>
+                <Listen text={fullSentence(r.item)} speak={speak} />
               </li>
             ))}
           </ul>

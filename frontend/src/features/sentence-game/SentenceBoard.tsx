@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QUESTIONS } from '../../shared/grammar/cases'
 import { answerLabel } from '../../shared/grammar/format'
+import { Listen } from '../../shared/grammar/Listen'
 import { RuleCard } from '../../shared/grammar/RuleCard'
 import { useGrammarTexts } from '../../shared/grammar/texts'
 import type { Speech } from '../../shared/speech/useSpeech'
@@ -80,7 +81,11 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
           </span>
         </div>
 
-        <Sentence item={item} done={step === 'correct'} speak={speech.listen} />
+        <Sentence
+          item={item}
+          done={step === 'correct' || step === 'endingMistake'}
+          speak={speech.listen}
+        />
 
         {caseStep ? (
           <div className="space-y-2">
@@ -161,7 +166,8 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
   )
 }
 
-/** The sentence with its noun: the dictionary form until it's solved. */
+/** The sentence with its noun: the dictionary form until it's solved, then the
+ *  right form (also after a wrong ending, to show what it should have been). */
 function Sentence({
   item,
   done,
@@ -191,6 +197,7 @@ function Sentence({
                 {t('game.badges.plural')}
               </span>
             )}
+            <Listen text={item.word.stressed_lemma} speak={speak} />
           </span>
         )}
         {item.after}
