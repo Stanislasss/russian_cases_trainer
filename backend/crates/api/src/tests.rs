@@ -129,7 +129,11 @@ async fn config_follows_the_speech_pack() {
     let config: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(
         config,
-        serde_json::json!({ "accounts": false, "speech": { "state": "not_installed" } })
+        serde_json::json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            "accounts": false,
+            "speech": { "state": "not_installed" }
+        })
     );
 
     let (status, _) = send(&router, post("/api/speech/pack")).await;
@@ -221,4 +225,30 @@ async fn sentences_take_noun_levels_only() {
     let (status, body) = send(&router, batch(r#""basic_adjectives""#)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(body.contains(r#""code":"invalid_game_request""#), "{body}");
+}
+
+#[tokio::test]
+async fn an_updated_app_never_shows_a_cached_page() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("index.html"), "the app").unwrap();
+    std::fs::create_dir(dir.path().join("assets")).unwrap();
+    std::fs::write(dir.path().join("assets/index-abc123.js"), "code").unwrap();
+    let router = router(local_state(), Some(dir.path()));
+    let cache_control = |uri: &'static str| {
+        let router = router.clone();
+        async move {
+            let response = router.oneshot(get(uri)).await.unwrap();
+            response.headers()[header::CACHE_CONTROL]
+                .to_str()
+                .unwrap()
+                .to_owned()
+        }
+    };
+
+    assert_eq!(cache_control("/").await, "no-cache");
+    assert_eq!(cache_control("/play/sentences").await, "no-cache");
+    assert_eq!(
+        cache_control("/assets/index-abc123.js").await,
+        "public, max-age=31536000, immutable"
+    );
 }

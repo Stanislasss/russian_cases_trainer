@@ -2,7 +2,8 @@
   "app": {
     "title": "Тренажёр падежей",
     "language": "Язык",
-    "attribution": "Словарные данные:"
+    "attribution": "Словарные данные:",
+    "version": "Версия"
   },
   "common": {
     "loading": "Загрузка…",

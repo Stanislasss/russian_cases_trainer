@@ -2,7 +2,8 @@
   "app": {
     "title": "Entraîneur de cas russes",
     "language": "Langue",
-    "attribution": "Données lexicales :"
+    "attribution": "Données lexicales :",
+    "version": "Version"
   },
   "common": {
     "loading": "Chargement…",

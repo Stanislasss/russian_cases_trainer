@@ -59,7 +59,10 @@ fn start(app: &AppHandle) -> anyhow::Result<()> {
         data_dir,
         origin: None,
     }))?;
-    let url: Url = server.url.parse()?;
+    // The version in the address: a new version is a page the webview has never
+    // cached, so an update shows up at once (the origin, and what the page
+    // stores, stay the same).
+    let url: Url = format!("{}/?v={}", server.url, env!("CARGO_PKG_VERSION")).parse()?;
 
     let home = url.origin();
     WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))

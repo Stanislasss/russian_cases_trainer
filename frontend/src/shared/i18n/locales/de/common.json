@@ -2,7 +2,8 @@
   "app": {
     "title": "Russische Fälle trainieren",
     "language": "Sprache",
-    "attribution": "Wortdaten von"
+    "attribution": "Wortdaten von",
+    "version": "Version"
   },
   "common": {
     "loading": "Wird geladen…",

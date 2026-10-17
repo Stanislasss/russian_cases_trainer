@@ -9,8 +9,10 @@ const CONTAINER = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8'
 
 export function Layout() {
   const { t } = useTranslation()
+  const config = useConfig().data
   // The desktop app has settings (the speech pack) instead of accounts.
-  const desktop = useConfig().data?.accounts === false
+  const desktop = config?.accounts === false
+  const version = config?.version
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -44,17 +46,20 @@ export function Layout() {
       <main className={`${CONTAINER} flex-1 py-6 sm:py-8`}>
         <Outlet />
       </main>
-      <footer className="border-t border-slate-200 py-3 text-center text-xs text-slate-500">
-        <div className={CONTAINER}>
-          {t('app.attribution')}{' '}
-          <a className="underline" href="https://en.openrussian.org">
-            OpenRussian.org
-          </a>{' '}
-          &amp;{' '}
-          <a className="underline" href="https://fr.wiktionary.org">
-            Wiktionary
-          </a>{' '}
-          (CC BY-SA 4.0)
+      <footer className="border-t border-slate-200 py-3 text-xs text-slate-500">
+        <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-x-4 gap-y-1`}>
+          <span>
+            {t('app.attribution')}{' '}
+            <a className="underline" href="https://en.openrussian.org">
+              OpenRussian.org
+            </a>{' '}
+            &amp;{' '}
+            <a className="underline" href="https://fr.wiktionary.org">
+              Wiktionary
+            </a>{' '}
+            (CC BY-SA 4.0)
+          </span>
+          {version && <span title={t('app.version')}>v{version}</span>}
         </div>
       </footer>
     </div>

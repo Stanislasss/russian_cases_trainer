@@ -22,7 +22,8 @@ export function mockApi(handlers: Record<string, () => Response>) {
     'GET /api/me': () => problem(401, 'unauthenticated'),
     'GET /api/health': () => json(200, { status: 'ok' }),
     // The web app: accounts, and a speech service.
-    'GET /api/config': () => json(200, { accounts: true, speech: { state: 'service' } }),
+    'GET /api/config': () =>
+      json(200, { version: '1.2.3', accounts: true, speech: { state: 'service' } }),
     'GET /api/speech': () => new Response('RIFF', { headers: { 'content-type': 'audio/wav' } }),
   }
   // The API client passes a Request; speech prefetching passes a URL.

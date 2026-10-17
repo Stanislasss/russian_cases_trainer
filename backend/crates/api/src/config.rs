@@ -14,6 +14,8 @@ pub fn routes() -> Router<AppState> {
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AppConfig {
+    /// The app's version, e.g. "0.1.2".
+    version: &'static str,
     /// Accounts with login (web); false in the desktop app, which has one local user.
     accounts: bool,
     speech: SpeechStatus,
@@ -50,6 +52,7 @@ impl From<PackStatus> for SpeechStatus {
 #[utoipa::path(get, path = "/api/config", responses((status = 200, body = AppConfig)))]
 pub async fn config(State(state): State<AppState>) -> Json<AppConfig> {
     Json(AppConfig {
+        version: env!("CARGO_PKG_VERSION"),
         accounts: matches!(state.accounts, Accounts::Sessions { .. }),
         speech: state
             .speech_pack

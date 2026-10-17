@@ -227,6 +227,8 @@ export interface components {
       /** @description Accounts with login (web); false in the desktop app, which has one local user. */
       accounts: boolean
       speech: components['schemas']['SpeechStatus']
+      /** @description The app's version, e.g. "0.1.2". */
+      version: string
     }
     CaseZones: {
       case: components['schemas']['GrammaticalCase']

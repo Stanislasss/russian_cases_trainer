@@ -25,3 +25,9 @@ test('a warning shows only when the server is unreachable', async () => {
   renderAt('/')
   expect(await screen.findByRole('alert')).toHaveTextContent('isn’t responding')
 })
+
+test('the version is shown in the footer', async () => {
+  mockApi({})
+  renderAt('/')
+  expect(await screen.findByText('v1.2.3')).toBeInTheDocument()
+})

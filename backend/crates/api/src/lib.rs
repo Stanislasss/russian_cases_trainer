@@ -91,11 +91,34 @@ pub fn router(state: AppState, static_dir: Option<&Path>) -> Router {
         // Client-side routes (/rules/genitive) get the app itself.
         router = router
             .route("/api/{*rest}", axum::routing::any(error::not_found))
-            .fallback_service(ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html"))));
+            .fallback_service(ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html"))))
+            .layer(axum::middleware::map_response(static_caching));
     }
     router
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
+}
+
+/// The app's files: the page itself must be checked again every time, or an
+/// updated app keeps showing the previous version from the webview's cache;
+/// the bundles in /assets carry a content hash in their name and never change.
+async fn static_caching(
+    uri: axum::http::Uri,
+    mut response: axum::response::Response,
+) -> axum::response::Response {
+    use axum::http::{HeaderValue, header::CACHE_CONTROL};
+    let path = uri.path();
+    if !path.starts_with("/api/") && !response.headers().contains_key(CACHE_CONTROL) {
+        let policy = if path.starts_with("/assets/") {
+            "public, max-age=31536000, immutable"
+        } else {
+            "no-cache"
+        };
+        response
+            .headers_mut()
+            .insert(CACHE_CONTROL, HeaderValue::from_static(policy));
+    }
+    response
 }
 
 #[derive(Serialize, ToSchema)]

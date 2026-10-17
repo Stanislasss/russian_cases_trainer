@@ -2,7 +2,8 @@
   "app": {
     "title": "Russian Cases Trainer",
     "language": "Language",
-    "attribution": "Word data from"
+    "attribution": "Word data from",
+    "version": "Version"
   },
   "common": {
     "loading": "Loading…",
