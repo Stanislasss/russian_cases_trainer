@@ -112,13 +112,14 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
               </span>
               {t('sentences.pickEnding')}
             </p>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {zones.map((zone, i) => (
                 <AnswerButton
                   key={zone}
                   shortcut={i + 1}
                   onClick={() => onEnding(zone)}
                   disabled={step !== 'ending'}
+                  className="w-24 sm:w-28"
                   aria-label={zone === '' ? t('game.zeroEnding') : answerLabel(zone, 'ending')}
                 >
                   {answerLabel(zone, 'ending')}

@@ -95,7 +95,10 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
       onDragEnd={onDragEnd}
       onDragCancel={() => setDragging(null)}
     >
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      {/* A side column only while a rule is shown; centred otherwise. */}
+      <div
+        className={`mx-auto grid gap-6 ${mistake ? 'max-w-6xl lg:grid-cols-[minmax(0,1fr)_22rem]' : 'max-w-4xl'}`}
+      >
         <section className="flex flex-col gap-4">
           <p className="text-center text-sm text-slate-500">
             {t('game.case')}:{' '}
@@ -189,7 +192,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
               ))}
           </p>
 
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-2">
+          <div className="flex flex-wrap justify-center gap-2">
             {state.zones.map((zone, i) => (
               <Zone
                 key={zone}
@@ -251,6 +254,7 @@ function Zone({
       disabled={disabled}
       shortcut={shortcut}
       highlighted={isOver}
+      className="w-24 sm:w-28"
       aria-label={zone === '' ? t('game.zeroEnding') : label}
     >
       {label}
