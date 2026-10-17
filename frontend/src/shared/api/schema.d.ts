@@ -106,6 +106,43 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/games/sentences/attempts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Records the player's sentence answers; `correct` means the case and the
+     *     ending were both right the first time.
+     */
+    post: operations['sentences_attempts']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/games/sentences/batch': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** A batch of sentences, each with one noun to put in the right case and form. */
+    post: operations['sentences_batch']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/health': {
     parameters: {
       query?: never
@@ -190,6 +227,11 @@ export interface components {
       /** @description Accounts with login (web); false in the desktop app, which has one local user. */
       accounts: boolean
       speech: components['schemas']['SpeechStatus']
+    }
+    CaseZones: {
+      case: components['schemas']['GrammaticalCase']
+      /** @description In paradigm order; "" is the zero ending. */
+      endings: string[]
     }
     /**
      * @description How a word declines; the rules pages have a table per paradigm.
@@ -328,6 +370,31 @@ export interface components {
       email: string
       password: string
       ui_locale?: null | components['schemas']['UiLocale']
+    }
+    SentenceItem: {
+      after: string
+      /** @description Stress-marked Russian before and after the noun. */
+      before: string
+      /** @description The case the noun takes here. */
+      case: components['schemas']['GrammaticalCase']
+      /** @description Why: one of the case's uses, as in the rules (e.g. "about", "absence"). */
+      reason: string
+      template_id: string
+      /** @description The sentence in en/fr/de, with ___ for the noun; no Russian. */
+      translations: components['schemas']['Translations']
+      /** @description The noun, its answer and everything needed to explain a wrong ending. */
+      word: components['schemas']['EndingsItem']
+    }
+    SentencesBatch: {
+      items: components['schemas']['SentenceItem'][]
+      /** @description The ending buttons of each case asked. */
+      zones: components['schemas']['CaseZones'][]
+    }
+    SentencesBatchRequest: {
+      /** @description 1–50, default 10. Fewer may come back when no word fits a frame. */
+      count?: number | null
+      /** @description Noun levels the words come from. */
+      levels: components['schemas']['Level'][]
     }
     /** @description Whether words can be pronounced. */
     SpeechStatus:
@@ -550,6 +617,77 @@ export interface operations {
         }
       }
       /** @description no level, levels that can't be mixed, or bad count */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  sentences_attempts: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EndingsAttempts']
+      }
+    }
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description not logged in */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+      /** @description too many/few attempts or unknown word */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  sentences_batch: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SentencesBatchRequest']
+      }
+    }
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SentencesBatch']
+        }
+      }
+      /** @description no level, a level that isn't nouns, or bad count */
       422: {
         headers: {
           [name: string]: unknown

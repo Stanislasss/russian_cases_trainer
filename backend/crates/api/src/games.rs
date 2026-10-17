@@ -172,19 +172,24 @@ async fn endings_attempts(
     CurrentUser(user): CurrentUser,
     Json(req): Json<EndingsAttempts>,
 ) -> Result<StatusCode, AppError> {
-    let attempts: Vec<Attempt> = req
-        .attempts
-        .into_iter()
-        .map(|a| Attempt {
-            lexeme_id: a.lexeme_id,
-            case: a.case.into(),
-            number: a.number.into(),
-            gender: a.gender.map(Into::into),
-            animacy: a.animacy.map(Into::into),
-            answer: a.answer,
-            correct: a.correct,
-        })
-        .collect();
+    let attempts: Vec<Attempt> = req.into();
     state.endings.record_attempts(user.id, &attempts).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+impl From<EndingsAttempts> for Vec<Attempt> {
+    fn from(req: EndingsAttempts) -> Self {
+        req.attempts
+            .into_iter()
+            .map(|a| Attempt {
+                lexeme_id: a.lexeme_id,
+                case: a.case.into(),
+                number: a.number.into(),
+                gender: a.gender.map(Into::into),
+                animacy: a.animacy.map(Into::into),
+                answer: a.answer,
+                correct: a.correct,
+            })
+            .collect()
+    }
 }

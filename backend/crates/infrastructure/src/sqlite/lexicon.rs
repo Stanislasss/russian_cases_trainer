@@ -68,14 +68,15 @@ pub async fn write_lexicon(path: &Path, lexemes: &[NewLexeme]) -> Result<usize, 
         let rank = word.frequency_rank.expect("askable words have a rank");
         sqlx::query(
             "INSERT INTO lexemes
-                 (id, lemma, stressed_lemma, pos, gender, indeclinable, frequency_rank, proper)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 (id, lemma, stressed_lemma, pos, gender, animacy, indeclinable, frequency_rank, proper)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         )
         .bind(id)
         .bind(&word.lemma)
         .bind(&word.stressed_lemma)
         .bind(word.pos.as_str())
         .bind(word.gender.map(|g| g.as_str()))
+        .bind(word.animacy.map(|a| a.as_str()))
         .bind(word.indeclinable)
         .bind(rank)
         .bind(word.lemma != word.lemma.to_lowercase())

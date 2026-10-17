@@ -8,6 +8,7 @@ import { EndingsGamePage } from '../features/endings-game/EndingsGamePage'
 import { HomePage } from '../features/home/HomePage'
 import { CaseRulesPage } from '../features/rules/CaseRulesPage'
 import { RulesPage } from '../features/rules/RulesPage'
+import { SentenceGamePage } from '../features/sentence-game/SentenceGamePage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { Layout } from './Layout'
 
@@ -17,6 +18,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'play/endings', element: <EndingsGamePage /> },
+      { path: 'play/sentences', element: <SentenceGamePage /> },
       { path: 'rules', element: <RulesPage /> },
       { path: 'rules/:case', element: <CaseRulesPage /> },
       { path: 'settings', element: <SettingsPage /> },

@@ -17,9 +17,27 @@
   "home": {
     "heading": "Maîtrisez les six cas du russe",
     "intro": "Étudiez les règles de déclinaison cas par cas, puis entraînez-vous avec des jeux.",
-    "backend": "Serveur",
-    "offline": "injoignable",
-    "play": "Jouer : glisser les terminaisons"
+    "offline": "Le serveur de l’application ne répond pas ; les exercices ne se chargeront pas.",
+    "play": "Jouer : glisser les terminaisons",
+    "readRules": "Lire les règles",
+    "casesTitle": "Les six cas",
+    "cards": {
+      "rules": {
+        "title": "Règles",
+        "text": "À quoi sert chaque cas, ses terminaisons dans chaque déclinaison et les exceptions.",
+        "action": "Lire les règles"
+      },
+      "endings": {
+        "title": "Terminaisons",
+        "text": "Glissez chaque mot sur la terminaison qu’il prend au cas choisi. Entraînement ou arcade.",
+        "action": "Jouer"
+      },
+      "sentences": {
+        "title": "Phrases",
+        "text": "Lisez une phrase, trouvez le cas que demande le mot, puis choisissez sa terminaison.",
+        "action": "Jouer"
+      }
+    }
   },
   "auth": {
     "email": "E-mail",
@@ -51,8 +69,6 @@
     }
   },
   "nav": {
-    "play": "Jouer",
-    "rules": "Règles",
     "settings": "Paramètres"
   },
   "cases": {
@@ -148,5 +164,16 @@
       "remove": "Le supprimer",
       "licence": "Le pack vocal contient les logiciels libres Piper et eSpeak NG (GPL-3.0) :"
     }
+  },
+  "sentences": {
+    "title": "Phrases",
+    "subtitle": "Trouvez le cas que demande la phrase, puis la terminaison. Chaque erreur est expliquée.",
+    "round": "Séries de {{count}} phrases avec des noms des niveaux choisis.",
+    "empty": "Aucun mot ne correspond à ces niveaux. Essayez un autre niveau.",
+    "pickCase": "Quel cas ?",
+    "pickEnding": "Quelle terminaison ?",
+    "howTo": "Cliquez sur une réponse ou appuyez sur son numéro ; Entrée pour continuer.",
+    "whyCase": "Ici, c’est le {{case}}",
+    "chosenUsedFor": "Le {{case}} s’emploie pour :"
   }
 }

@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Speech } from '../../shared/speech/useSpeech'
+import { AnswerButton } from '../../shared/ui/AnswerButton'
 import { Button } from '../../shared/ui/Button'
 import { answerLabel } from '../../shared/grammar/format'
 import { RuleCard } from '../../shared/grammar/RuleCard'
@@ -138,7 +139,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
           <div
             className={`relative rounded-lg border border-slate-200 bg-white ${
               state.mode === 'arcade'
-                ? 'h-[45vh] overflow-hidden'
+                ? 'h-[50vh] min-h-72 overflow-hidden'
                 : 'flex min-h-40 flex-col items-center justify-center gap-3'
             }`}
           >
@@ -188,7 +189,7 @@ export function Board({ state, onAnswer, onQuit, onContinue, speech }: Props) {
               ))}
           </p>
 
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-2">
             {state.zones.map((zone, i) => (
               <Zone
                 key={zone}
@@ -244,21 +245,16 @@ function Zone({
   const { t } = useTranslation()
   const { setNodeRef, isOver } = useDroppable({ id: zoneId(zone) })
   return (
-    <button
+    <AnswerButton
       ref={setNodeRef}
-      type="button"
       onClick={onClick}
       disabled={disabled}
+      shortcut={shortcut}
+      highlighted={isOver}
       aria-label={zone === '' ? t('game.zeroEnding') : label}
-      className={`relative rounded-lg border-2 py-5 text-xl font-semibold transition-colors disabled:opacity-40 ${
-        isOver ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white hover:border-slate-400'
-      }`}
     >
       {label}
-      {shortcut <= 9 && (
-        <span className="absolute top-1 left-2 text-xs font-normal text-slate-400">{shortcut}</span>
-      )}
-    </button>
+    </AnswerButton>
   )
 }
 
@@ -307,7 +303,7 @@ function CardFace({ word, selected, onListen, answered }: CardFaceProps) {
       }`}
     >
       <div className="flex items-center justify-center gap-1">
-        <span className="text-2xl font-semibold">{word.item.stressed_lemma}</span>
+        <span className="text-2xl font-semibold md:text-3xl">{word.item.stressed_lemma}</span>
         {onListen && (
           <button
             type="button"

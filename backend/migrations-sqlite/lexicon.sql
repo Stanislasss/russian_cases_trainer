@@ -13,6 +13,7 @@ CREATE TABLE lexemes (
     stressed_lemma TEXT,
     pos            TEXT NOT NULL,
     gender         TEXT,             -- NULL for pluralia tantum
+    animacy        TEXT,             -- nouns: animate or inanimate
     indeclinable   INTEGER NOT NULL,
     frequency_rank INTEGER NOT NULL, -- lower = more common
     proper         INTEGER NOT NULL  -- capitalised lemma: place names, surnames

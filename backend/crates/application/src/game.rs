@@ -31,6 +31,8 @@ pub struct GameFilter {
     pub case: Case,
     /// Shared by all levels of a game.
     pub answer: AnswerKind,
+    /// Only nouns of this animacy (sentence frames that need someone); `None`: any word.
+    pub animacy: Option<Animacy>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,6 +115,9 @@ pub enum GameError {
     MixedLevels,
     #[error("ask for between 1 and {MAX_BATCH} words")]
     InvalidCount,
+    /// The sentence game only fills its frames with nouns.
+    #[error("only noun levels can be played in sentences")]
+    NounLevelsOnly,
     /// Too few/many attempts, or one refers to an unknown word.
     #[error("send between 1 and {MAX_ATTEMPTS} attempts for existing words")]
     InvalidAttempts,
@@ -171,6 +176,7 @@ impl EndingsGame {
             levels: specs,
             case,
             answer,
+            animacy: None,
         };
 
         let mut zones = self
@@ -198,19 +204,25 @@ impl EndingsGame {
         user: UserId,
         attempts: &[Attempt],
     ) -> Result<(), GameError> {
-        let sane = |a: &Attempt| a.answer.chars().count() <= MAX_ANSWER_CHARS;
-        if !(1..=MAX_ATTEMPTS).contains(&attempts.len()) || !attempts.iter().all(sane) {
-            return Err(GameError::InvalidAttempts);
-        }
+        check_attempts(attempts)?;
         Ok(self.attempts.record(user, EXERCISE_TYPE, attempts).await?)
     }
+}
+
+/// Between 1 and `MAX_ATTEMPTS` attempts, each with a plausible answer.
+pub(crate) fn check_attempts(attempts: &[Attempt]) -> Result<(), GameError> {
+    let sane = |a: &Attempt| a.answer.chars().count() <= MAX_ANSWER_CHARS;
+    if !(1..=MAX_ATTEMPTS).contains(&attempts.len()) || !attempts.iter().all(sane) {
+        return Err(GameError::InvalidAttempts);
+    }
+    Ok(())
 }
 
 /// The order grammar tables list endings in: nouns singular then plural, and
 /// adjectives masculine, feminine, neuter, plural. Noun order comes first when a
 /// noun level is played (-ей is then a genitive plural, not a feminine ending).
 /// Unknown endings go last.
-fn sort_like_the_paradigm(zones: &mut [String], case: Case, nouns_first: bool) {
+pub(crate) fn sort_like_the_paradigm(zones: &mut [String], case: Case, nouns_first: bool) {
     let nouns: Vec<&str> = [Number::Singular, Number::Plural]
         .into_iter()
         .flat_map(|number| noun_endings(case, number).iter().copied())

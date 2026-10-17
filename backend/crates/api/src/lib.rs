@@ -7,6 +7,7 @@ pub mod dto;
 pub mod error;
 pub mod games;
 pub mod local;
+pub mod sentences;
 pub mod speech;
 
 use std::path::Path;
@@ -14,6 +15,7 @@ use std::sync::Arc;
 
 use application::auth::AuthService;
 use application::game::EndingsGame;
+use application::sentences::SentenceGame;
 use application::speech::{SpeechPack, SpeechService};
 use axum::{Json, Router, routing::get};
 use domain::user::User;
@@ -26,6 +28,7 @@ use utoipa::{OpenApi, ToSchema};
 pub struct AppState {
     pub accounts: Accounts,
     pub endings: EndingsGame,
+    pub sentences: SentenceGame,
     pub speech: SpeechService,
     /// The desktop app's downloadable speech pack; `None` on the web, where
     /// Piper runs as a service.
@@ -57,6 +60,8 @@ pub enum Accounts {
         auth::me,
         games::endings_batch,
         games::endings_attempts,
+        sentences::sentences_batch,
+        sentences::sentences_attempts,
         speech::speech,
         speech::install_pack,
         speech::remove_pack,
@@ -79,6 +84,7 @@ pub fn router(state: AppState, static_dir: Option<&Path>) -> Router {
         .merge(config::routes())
         .merge(auth::routes(&state.accounts))
         .merge(games::routes())
+        .merge(sentences::routes())
         .merge(speech::routes(state.speech_pack.is_some()))
         .with_state(state);
     if let Some(dir) = static_dir {

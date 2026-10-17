@@ -29,6 +29,12 @@ The game (`/play/endings`) shows a word in its dictionary form and the case to p
 - **Arcade:** words fall against the clock; mistakes are explained in the summary.
 - **Translations** follow the UI language: English, German, French, or a Russian definition. English is the fallback when a word has none.
 
+## Sentences game
+
+The sentence game (`/play/sentences`) shows a short sentence with one noun in its dictionary form. First pick the **case** the sentence needs, then the **ending**. A wrong case is explained with the use that requires it (e.g. "After к, по, благодаря́ …") and what the chosen case is used for instead; a wrong ending shows the same rule card as the endings game. A right answer is read aloud.
+
+The sentences are frames in `backend/crates/domain/src/sentences.rs`, about 40 of them, each with its case, the reason (a use id from the frontend's `cases.ts`), allowed numbers, animacy and translations. They're filled with random nouns from the chosen levels, so frames are chosen to work with almost any noun ("Я ду́маю о ___", "У меня́ нет ___"; "Я позвони́л ___" only takes people and animals). A few sentences still come out quirky ("Я бою́сь но́са"). Place frames (в ___) are left out for that reason.
+
 ## Pronunciation
 
 Pronunciations come from the `tts` service, a local [Piper](https://github.com/OHF-Voice/piper1-gpl) server (GPL-3.0) with four Russian voices. Compare them on http://localhost:5002 and set `TTS_VOICE` in `.env` (then `just up`). Audio is cached in the `speech-cache` volume; without the service the game simply has no sound. The 🔊 buttons and the automatic reading in Practice can be muted.

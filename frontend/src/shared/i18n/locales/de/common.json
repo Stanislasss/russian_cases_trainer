@@ -17,9 +17,27 @@
   "home": {
     "heading": "Die sechs russischen Fälle meistern",
     "intro": "Lerne die Deklinationsregeln Fall für Fall und übe sie dann in Spielen.",
-    "backend": "Server",
-    "offline": "nicht erreichbar",
-    "play": "Spielen: Endungen ziehen"
+    "offline": "Der Server der App antwortet nicht; die Übungen laden nicht.",
+    "play": "Spielen: Endungen ziehen",
+    "readRules": "Regeln lesen",
+    "casesTitle": "Die sechs Fälle",
+    "cards": {
+      "rules": {
+        "title": "Regeln",
+        "text": "Wofür jeder Fall steht, seine Endungen in jeder Deklination und die Ausnahmen.",
+        "action": "Regeln lesen"
+      },
+      "endings": {
+        "title": "Endungen",
+        "text": "Zieh jedes Wort auf die Endung, die es im gewählten Fall hat. Übung oder Arcade.",
+        "action": "Spielen"
+      },
+      "sentences": {
+        "title": "Sätze",
+        "text": "Lies einen Satz, finde den Fall, den das Wort braucht, und wähle dann seine Endung.",
+        "action": "Spielen"
+      }
+    }
   },
   "auth": {
     "email": "E-Mail",
@@ -51,8 +69,6 @@
     }
   },
   "nav": {
-    "play": "Spielen",
-    "rules": "Regeln",
     "settings": "Einstellungen"
   },
   "cases": {
@@ -148,5 +164,16 @@
       "remove": "Entfernen",
       "licence": "Das Sprachpaket enthält die freie Software Piper und eSpeak NG (GPL-3.0):"
     }
+  },
+  "sentences": {
+    "title": "Sätze",
+    "subtitle": "Finde den Fall, den der Satz braucht, dann die Endung. Jeder Fehler wird erklärt.",
+    "round": "Runden mit {{count}} Sätzen und Nomen aus den gewählten Stufen.",
+    "empty": "Keine Wörter passen zu diesen Stufen. Versuch eine andere Stufe.",
+    "pickCase": "Welcher Fall?",
+    "pickEnding": "Welche Endung?",
+    "howTo": "Klick eine Antwort an oder drück ihre Zahl; Enter geht weiter.",
+    "whyCase": "Hier ist es der {{case}}",
+    "chosenUsedFor": "Der {{case}} steht für:"
   }
 }

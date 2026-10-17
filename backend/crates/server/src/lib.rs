@@ -9,6 +9,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use api::{Accounts, AppState};
 use application::game::EndingsGame;
+use application::sentences::SentenceGame;
 use application::speech::SpeechService;
 use chrono::DateTime;
 use domain::grammar::Locale;
@@ -70,6 +71,10 @@ pub async fn start_local(config: LocalConfig) -> anyhow::Result<LocalServer> {
     let state = AppState {
         accounts: Accounts::Local(local_user()),
         endings: EndingsGame::new(
+            Arc::new(SqliteExerciseRepository::new(pool.clone())),
+            Arc::new(SqliteAttemptRepository::new(pool.clone())),
+        ),
+        sentences: SentenceGame::new(
             Arc::new(SqliteExerciseRepository::new(pool.clone())),
             Arc::new(SqliteAttemptRepository::new(pool)),
         ),

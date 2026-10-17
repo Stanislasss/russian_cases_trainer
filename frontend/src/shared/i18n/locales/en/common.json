@@ -17,9 +17,27 @@
   "home": {
     "heading": "Master the six Russian cases",
     "intro": "Study the declension rules case by case, then practise them with games.",
-    "backend": "Backend",
-    "offline": "unreachable",
-    "play": "Play: drag the endings"
+    "offline": "The app’s server isn’t responding; exercises won’t load.",
+    "play": "Play: drag the endings",
+    "readRules": "Read the rules",
+    "casesTitle": "The six cases",
+    "cards": {
+      "rules": {
+        "title": "Rules",
+        "text": "What each case is for, its endings in every declension, and the exceptions.",
+        "action": "Read the rules"
+      },
+      "endings": {
+        "title": "Endings",
+        "text": "Drag each word onto the ending it takes in the chosen case. Practice or arcade.",
+        "action": "Play"
+      },
+      "sentences": {
+        "title": "Sentences",
+        "text": "Read a sentence, work out which case the word needs, then pick its ending.",
+        "action": "Play"
+      }
+    }
   },
   "auth": {
     "email": "Email",
@@ -51,8 +69,6 @@
     }
   },
   "nav": {
-    "play": "Play",
-    "rules": "Rules",
     "settings": "Settings"
   },
   "cases": {
@@ -148,5 +164,16 @@
       "remove": "Remove it",
       "licence": "The speech pack contains the free software Piper and eSpeak NG (GPL-3.0):"
     }
+  },
+  "sentences": {
+    "title": "Sentences",
+    "subtitle": "Work out which case the sentence needs, then the ending. Every mistake is explained.",
+    "round": "Rounds of {{count}} sentences with nouns from the chosen levels.",
+    "empty": "No words match these levels. Try another level.",
+    "pickCase": "Which case?",
+    "pickEnding": "Which ending?",
+    "howTo": "Click an answer or press its number; Enter continues.",
+    "whyCase": "Here it’s the {{case}}",
+    "chosenUsedFor": "The {{case}} is used for:"
   }
 }

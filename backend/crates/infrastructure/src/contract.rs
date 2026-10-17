@@ -25,6 +25,7 @@ macro_rules! contract_tests {
             a_batch_asks_each_word_once,
             the_dictionary_form_is_never_asked,
             personal_pronouns_are_asked_as_whole_forms,
+            animacy_filters_keep_only_such_nouns,
         );
     };
     (@each $attr:meta, $args:tt => $seed:expr; $($name:ident),* $(,)?) => {
@@ -119,6 +120,7 @@ fn filter(levels: &[LevelId], case: Case) -> GameFilter {
         answer: levels[0].answer,
         levels,
         case,
+        animacy: None,
     }
 }
 
@@ -353,4 +355,58 @@ pub async fn personal_pronouns_are_asked_as_whole_forms(db: impl Seed) {
     let mut accepted = items[0].accepted.clone();
     accepted.sort();
     assert_eq!(accepted, ["его", "него"]);
+}
+
+pub async fn animacy_filters_keep_only_such_nouns(db: impl Seed) {
+    use Number::*;
+    let with_animacy = |mut word: NewLexeme, animacy| {
+        word.animacy = Some(animacy);
+        word
+    };
+    let repo = db
+        .seed(&[
+            with_animacy(
+                noun("брат", 1, false, &[(Singular, &["бра\u{301}том"])], &[]),
+                Animacy::Animate,
+            ),
+            with_animacy(
+                noun("стол", 2, false, &[(Singular, &["столо\u{301}м"])], &[]),
+                Animacy::Inanimate,
+            ),
+        ])
+        .await;
+    let only = |animacy| GameFilter {
+        animacy: Some(animacy),
+        ..filter(&[LevelId::BasicNouns], Case::Instrumental)
+    };
+    let lemmas = |items: Vec<application::game::GameItem>| -> Vec<String> {
+        items.into_iter().map(|i| i.stressed_lemma).collect()
+    };
+
+    let animate = repo
+        .random_items(&only(Animacy::Animate), &["ом".into()], 10)
+        .await
+        .unwrap();
+    assert_eq!(lemmas(animate), ["брат"]);
+    let inanimate = repo
+        .random_items(&only(Animacy::Inanimate), &["ом".into()], 10)
+        .await
+        .unwrap();
+    assert_eq!(lemmas(inanimate), ["стол"]);
+    let mut any = lemmas(
+        repo.random_items(
+            &filter(&[LevelId::BasicNouns], Case::Instrumental),
+            &["ом".into()],
+            10,
+        )
+        .await
+        .unwrap(),
+    );
+    any.sort();
+    assert_eq!(any, ["брат", "стол"]);
+    let zones = repo
+        .zones(&only(Animacy::Animate), MIN_ZONE_SHARE, MAX_ZONES)
+        .await
+        .unwrap();
+    assert_eq!(zones, ["ом"]);
 }

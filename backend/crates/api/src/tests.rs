@@ -88,6 +88,7 @@ fn local_state() -> AppState {
             created_at: Utc::now(),
         }),
         endings: EndingsGame::new(Arc::new(NoWords), Arc::new(NoWords)),
+        sentences: SentenceGame::new(Arc::new(NoWords), Arc::new(NoWords)),
         speech: SpeechService::new(Arc::new(NoWords), Arc::new(NoWords)),
         speech_pack: Some(Arc::new(FakePack(Mutex::new(PackStatus::NotInstalled)))),
     }
@@ -201,4 +202,23 @@ async fn only_the_apps_own_window_may_use_the_local_server() {
     // the app itself
     let (status, _) = send(&router, request("POST", host, Some(origin))).await;
     assert_eq!(status, StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
+async fn sentences_take_noun_levels_only() {
+    let router = router(local_state(), None);
+    let batch = |levels: &str| {
+        Request::post("/api/games/sentences/batch")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(format!(r#"{{"levels":[{levels}]}}"#)))
+            .unwrap()
+    };
+
+    let (status, body) = send(&router, batch(r#""basic_nouns""#)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body, r#"{"zones":[],"items":[]}"#); // no words in this store
+
+    let (status, body) = send(&router, batch(r#""basic_adjectives""#)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body.contains(r#""code":"invalid_game_request""#), "{body}");
 }

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use application::auth::AuthService;
 use application::game::EndingsGame;
+use application::sentences::SentenceGame;
 use application::speech::SpeechService;
 use clap::{Parser, Subcommand};
 use infrastructure::games::{PgAttemptRepository, PgExerciseRepository};
@@ -104,6 +105,10 @@ async fn main() -> anyhow::Result<()> {
                     cookie_secure,
                 },
                 endings: EndingsGame::new(
+                    Arc::new(PgExerciseRepository::new(pool.clone())),
+                    Arc::new(PgAttemptRepository::new(pool.clone())),
+                ),
+                sentences: SentenceGame::new(
                     Arc::new(PgExerciseRepository::new(pool.clone())),
                     Arc::new(PgAttemptRepository::new(pool)),
                 ),

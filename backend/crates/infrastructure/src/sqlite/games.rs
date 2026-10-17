@@ -12,7 +12,8 @@ use crate::games::{ItemRow, level_rows};
 
 /// Askable forms for a filter, as the CTE `eligible(lexeme_id, number, gender,
 /// animacy, answer, rank)`. Binds: ?1 levels as JSON [[pos, max_rank, number], …],
-/// ?2 case, ?3 whole forms (bool).
+/// ?2 case, ?3 whole forms (bool), ?6 lexeme animacy (NULL for any; ?6 so that
+/// ?4 and ?5 stay free for the queries using it).
 const ELIGIBLE: &str = "
     WITH levels AS (
         SELECT value ->> 0 AS pos, value ->> 1 AS max_rank, value ->> 2 AS number
@@ -35,6 +36,7 @@ const ELIGIBLE: &str = "
            AND EXISTS (SELECT 1 FROM levels v
                         WHERE v.pos = l.pos AND v.number = f.number
                           AND l.frequency_rank <= v.max_rank)
+           AND (?6 IS NULL OR l.animacy = ?6)
     )";
 
 fn other(err: impl Into<BoxError>) -> RepoError {
@@ -86,6 +88,7 @@ impl ExerciseRepository for SqliteExerciseRepository {
         .bind(whole)
         .bind(min_share)
         .bind(i64::try_from(max_zones).unwrap_or(i64::MAX))
+        .bind(filter.animacy.map(|a| a.as_str()))
         .fetch_all(&self.pool)
         .await
         .map_err(other)
@@ -155,6 +158,7 @@ impl ExerciseRepository for SqliteExerciseRepository {
         .bind(whole)
         .bind(serde_json::to_string(zones).expect("plain data"))
         .bind(i64::try_from(count).unwrap_or(i64::MAX))
+        .bind(filter.animacy.map(|a| a.as_str()))
         .fetch_all(&self.pool)
         .await
         .map_err(other)?;

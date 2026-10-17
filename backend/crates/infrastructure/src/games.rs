@@ -13,7 +13,8 @@ use crate::lexicon::ANY;
 
 /// Askable forms for a filter, as the CTE `eligible(lexeme_id, number, gender,
 /// animacy, answer, rank)`. Binds: $1 pos[], $2 max_rank[], $3 number[] (one row
-/// per level × number), $4 case, $5 whole forms (bool).
+/// per level × number), $4 case, $5 whole forms (bool), $8 lexeme animacy (text or
+/// NULL for any; $8 so that $6 and $7 stay free for the queries using it).
 const ELIGIBLE: &str = "
     WITH levels AS (
         SELECT * FROM UNNEST($1::text[], $2::int4[], $3::text[]) AS t(pos, max_rank, number)
@@ -35,6 +36,7 @@ const ELIGIBLE: &str = "
            AND EXISTS (SELECT 1 FROM levels v
                         WHERE v.pos = l.pos AND v.number = f.number
                           AND l.frequency_rank <= v.max_rank)
+           AND ($8::text IS NULL OR l.animacy = $8)
     )";
 
 fn other(err: sqlx::Error) -> RepoError {
@@ -174,6 +176,7 @@ impl ExerciseRepository for PgExerciseRepository {
         .bind(whole)
         .bind(min_share)
         .bind(i64::try_from(max_zones).unwrap_or(i64::MAX))
+        .bind(filter.animacy.map(|a| a.as_str()))
         .fetch_all(&self.pool)
         .await
         .map_err(other)
@@ -248,6 +251,7 @@ impl ExerciseRepository for PgExerciseRepository {
         .bind(whole)
         .bind(zones)
         .bind(i64::try_from(count).unwrap_or(i64::MAX))
+        .bind(filter.animacy.map(|a| a.as_str()))
         .fetch_all(&self.pool)
         .await
         .map_err(other)?;
