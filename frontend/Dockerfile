@@ -1,5 +1,5 @@
 # dev: Vite dev server with hot reload (source is bind-mounted by docker-compose).
-FROM node:24-slim AS dev
+FROM node:26-slim AS dev
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci

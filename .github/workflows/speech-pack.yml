@@ -30,7 +30,7 @@ jobs:
     name: Voice and espeak-ng data
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install "$PIPER_TTS"
@@ -44,11 +44,11 @@ jobs:
         run: |
           python -m piper.download_voices --data-dir voice "$VOICE"
           (cd voice && zip -9 "../voice-$VOICE.zip" "$VOICE.onnx" "$VOICE.onnx.json")
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: espeak-ng-data
           path: espeak-ng-data
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: voice
           path: voice-${{ env.VOICE }}.zip
@@ -81,11 +81,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: espeak-ng-data
           path: pack/espeak-ng-data
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: voice
       - name: Piper
@@ -152,7 +152,7 @@ jobs:
           else
             (cd pack && zip -9 -r "../$name" .)
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: piper-${{ matrix.platform }}
           path: piper-${{ matrix.platform }}.zip
@@ -161,7 +161,7 @@ jobs:
     needs: piper
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: parts
           merge-multiple: true
@@ -203,7 +203,7 @@ jobs:
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat speech-pack.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: speech-pack.json
           path: speech-pack.json

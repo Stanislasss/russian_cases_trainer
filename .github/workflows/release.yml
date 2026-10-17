@@ -28,7 +28,7 @@ jobs:
     name: Word list
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: The tag matches the app version
         run: |
           version=$(grep -m1 '^version' backend/Cargo.toml | cut -d '"' -f2)
@@ -37,7 +37,7 @@ jobs:
             exit 1
           fi
       # The finished word list, rebuilt only when the code that shapes it changes.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: lexicon
         with:
           path: build/lexicon.sqlite
@@ -51,7 +51,7 @@ jobs:
           key: importer
           cache-on-failure: true
       # OpenRussian and Wiktionary downloads (about 1.9 GB), kept between releases.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         if: steps.lexicon.outputs.cache-hit != 'true'
         with:
           path: import-data
@@ -61,7 +61,7 @@ jobs:
         if: steps.lexicon.outputs.cache-hit != 'true'
         working-directory: backend
         run: cargo run --release -p importer -- --sqlite ../build/lexicon.sqlite --data-dir ../import-data
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lexicon
           path: build/lexicon.sqlite
@@ -87,22 +87,22 @@ jobs:
             target: x86_64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Webview libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
             libayatana-appindicator3-dev libsoup-3.0-dev patchelf
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Build the frontend
         working-directory: frontend
         run: npm ci && npm run build
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: lexicon
           path: build
