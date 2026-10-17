@@ -58,7 +58,7 @@ test('the speech pack is downloaded from the settings', async () => {
   renderAt('/settings')
 
   fireEvent.click(await screen.findByRole('button', { name: 'Download the speech pack' }))
-  expect(await screen.findByText('25 %')).toBeInTheDocument()
+  expect((await screen.findAllByText('25 %')).length).toBeGreaterThan(0)
   expect(fetchMock).toHaveBeenCalledWith(
     expect.objectContaining({ method: 'POST', url: expect.stringContaining('/api/speech/pack') }),
   )
@@ -76,4 +76,32 @@ test('a failed download can be retried', async () => {
   renderAt('/settings')
   expect(await screen.findByRole('alert')).toHaveTextContent('The download failed: no network')
   expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+})
+
+test('pronunciation is offered from the header on every page', async () => {
+  const fetchMock = mockDesktop({
+    'POST /api/speech/pack': () => {
+      speech = { state: 'installing', progress: 0.4 }
+      return new Response(null, { status: 202 })
+    },
+  })
+  renderAt('/rules/dative')
+  const offer = await screen.findByRole('button', { name: /Enable pronunciation/ })
+  fireEvent.click(offer)
+
+  expect(await screen.findByText('40 %')).toBeInTheDocument()
+  expect(fetchMock).toHaveBeenCalledWith(
+    expect.objectContaining({ method: 'POST', url: expect.stringContaining('/api/speech/pack') }),
+  )
+  speech = { state: 'ready' }
+  await waitFor(() => expect(screen.queryByText('40 %')).not.toBeInTheDocument(), { timeout: 2000 })
+  expect(screen.queryByRole('button', { name: /Enable pronunciation/ })).not.toBeInTheDocument()
+})
+
+test('a failed download can be retried from the header', async () => {
+  speech = { state: 'failed', error: 'no network' }
+  mockDesktop()
+  renderAt('/')
+  const retry = await screen.findByRole('button', { name: /Try again/ })
+  expect(retry).toHaveAttribute('title', 'The download failed: no network')
 })

@@ -176,5 +176,9 @@
     "howTo": "Cliquez sur une réponse ou appuyez sur son numéro ; Entrée pour continuer.",
     "whyCase": "Ici, c’est le {{case}}",
     "chosenUsedFor": "Le {{case}} s’emploie pour :"
+  },
+  "speechOffer": {
+    "enable": "Activer la prononciation",
+    "hint": "Écouter les mots et les phrases : télécharge une fois le pack vocal (environ 70 Mo)."
   }
 }

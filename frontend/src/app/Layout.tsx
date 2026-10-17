@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, Outlet } from 'react-router'
 import { UserMenu } from '../features/auth/UserMenu'
+import { SpeechPackOffer } from '../features/settings/SpeechPackOffer'
 import { useConfig } from '../shared/config/config'
 import { LanguageSwitcher } from '../shared/i18n/LanguageSwitcher'
 
@@ -26,6 +27,7 @@ export function Layout() {
             {t('app.title')}
           </Link>
           <div className="flex items-center gap-4">
+            <SpeechPackOffer />
             <UserMenu />
             {desktop && (
               <NavLink

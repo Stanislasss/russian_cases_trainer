@@ -176,5 +176,9 @@
     "howTo": "Click an answer or press its number; Enter continues.",
     "whyCase": "Here it’s the {{case}}",
     "chosenUsedFor": "The {{case}} is used for:"
+  },
+  "speechOffer": {
+    "enable": "Enable pronunciation",
+    "hint": "Hear words and sentences spoken: downloads the speech pack once (about 70 MB)."
   }
 }

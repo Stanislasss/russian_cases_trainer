@@ -176,5 +176,9 @@
     "howTo": "Klick eine Antwort an oder drück ihre Zahl; Enter geht weiter.",
     "whyCase": "Hier ist es der {{case}}",
     "chosenUsedFor": "Der {{case}} steht für:"
+  },
+  "speechOffer": {
+    "enable": "Aussprache aktivieren",
+    "hint": "Wörter und Sätze anhören: lädt einmal das Sprachpaket herunter (etwa 70 MB)."
   }
 }
