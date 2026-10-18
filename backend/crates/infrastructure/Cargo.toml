@@ -19,7 +19,7 @@ sqlx.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "process", "sync", "time"] }
 tracing.workspace = true
 uuid.workspace = true
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [lints]
 workspace = true

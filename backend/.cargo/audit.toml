@@ -1,0 +1,15 @@
+# `cargo audit` (run by CI). Advisories ignored here don't affect this app; each
+# says why and when to drop it. Anything new still fails the build.
+[advisories]
+ignore = [
+    # rsa, Marvin attack. Only reachable through sqlx-mysql, which sqlx lists in
+    # Cargo.lock but which is never compiled: we only enable postgres and sqlite.
+    "RUSTSEC-2023-0071",
+    # zip < 9 extraction issues (symlinks, permission bits). Our own zip is 9.x;
+    # the old one comes from tauri-plugin-updater 2.14 (zip ^4), which never
+    # unzips our updates (NSIS .exe, .app.tar.gz, AppImage) and verifies their
+    # signature first. Drop once tauri-plugin-updater moves to zip >= 9.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+]
