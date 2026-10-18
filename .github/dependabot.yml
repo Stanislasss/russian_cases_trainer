@@ -1,25 +1,74 @@
-# Monthly pull requests that update dependencies, including the actions pinned
-# to commit SHAs in the workflows (Dependabot moves the SHA and its comment).
+# Monthly pull requests with the minor and patch updates of each area, including
+# the actions pinned to commit SHAs in the workflows (Dependabot moves the SHA
+# and its comment). Major versions change APIs (sqlx 0.9, tauri-action 1…), so
+# they're left out here and done on purpose, one at a time. For 0.x crates a
+# "minor" bump (0.8 -> 0.9) is the breaking one, so those are left out too.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: tauri-apps/tauri-action
+        update-types: ["version-update:semver-minor"]
     groups:
       actions:
-        patterns: ["*"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: cargo
     directory: /backend
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # the direct dependencies still at 0.x
+      - dependency-name: argon2
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: async-trait
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: axum
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: axum-extra
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: chrono
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: http-body-util
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: rand
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: reqwest
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: sha2
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: sqlx
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: sys-locale
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: time
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: tower
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: tower-http
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: tracing
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: tracing-subscriber
+        update-types: ["version-update:semver-minor"]
     groups:
       rust:
-        patterns: ["*"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: openapi-fetch
+        update-types: ["version-update:semver-minor"]
     groups:
       npm:
-        patterns: ["*"]
+        update-types: ["minor", "patch"]
