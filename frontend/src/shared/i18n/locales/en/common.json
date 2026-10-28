@@ -153,6 +153,11 @@
   },
   "settings": {
     "title": "Settings",
+    "practice": {
+      "title": "Words",
+      "fewerKnownWords": "Show words I know less often",
+      "fewerKnownWordsAbout": "A word you got right the last 3 times in a case comes up 4 times less often in that case. After a mistake it comes up as often as the others again."
+    },
     "speech": {
       "title": "Pronunciation",
       "about": "Hear words and examples spoken by the voice “Irina”. This needs the speech pack (about 70 MB), downloaded once.",

@@ -10,6 +10,7 @@ use application::sentences::SentenceGame;
 use application::speech::SpeechService;
 use clap::{Parser, Subcommand};
 use infrastructure::games::{PgAttemptRepository, PgExerciseRepository};
+use infrastructure::preferences::PgPreferenceRepository;
 use infrastructure::security::{Argon2Hasher, OsTokenGenerator, SystemClock};
 use infrastructure::speech::{FsAudioCache, PiperSynthesizer};
 use infrastructure::users::{PgSessionRepository, PgUserRepository};
@@ -93,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
             let pool = infrastructure::connect(&database_url)
                 .await
                 .context("connecting to the database")?;
+            let preferences = Arc::new(PgPreferenceRepository::new(pool.clone()));
             let state = api::AppState {
                 accounts: api::Accounts::Sessions {
                     auth: AuthService::new(
@@ -107,11 +109,14 @@ async fn main() -> anyhow::Result<()> {
                 endings: EndingsGame::new(
                     Arc::new(PgExerciseRepository::new(pool.clone())),
                     Arc::new(PgAttemptRepository::new(pool.clone())),
+                    preferences.clone(),
                 ),
                 sentences: SentenceGame::new(
                     Arc::new(PgExerciseRepository::new(pool.clone())),
                     Arc::new(PgAttemptRepository::new(pool)),
+                    preferences.clone(),
                 ),
+                preferences,
                 speech: SpeechService::new(
                     Arc::new(PiperSynthesizer::new(&tts_url, &tts_voice)),
                     Arc::new(FsAudioCache::new(speech_cache_dir)),

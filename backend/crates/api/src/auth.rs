@@ -186,3 +186,18 @@ impl FromRequestParts<AppState> for CurrentUser {
             .ok_or(AppError::Unauthenticated)
     }
 }
+
+/// Who is playing: like `CurrentUser`, but playing without logging in is fine.
+pub struct Player(pub Option<User>);
+
+impl FromRequestParts<AppState> for Player {
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        match CurrentUser::from_request_parts(parts, state).await {
+            Ok(CurrentUser(user)) => Ok(Player(Some(user))),
+            Err(AppError::Unauthenticated) => Ok(Player(None)),
+            Err(e) => Err(e),
+        }
+    }
+}

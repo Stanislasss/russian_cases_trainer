@@ -7,6 +7,7 @@ pub mod dto;
 pub mod error;
 pub mod games;
 pub mod local;
+pub mod preferences;
 pub mod sentences;
 pub mod speech;
 
@@ -15,6 +16,7 @@ use std::sync::Arc;
 
 use application::auth::AuthService;
 use application::game::EndingsGame;
+use application::preferences::PreferenceRepository;
 use application::sentences::SentenceGame;
 use application::speech::{SpeechPack, SpeechService};
 use axum::{Json, Router, routing::get};
@@ -29,6 +31,8 @@ pub struct AppState {
     pub accounts: Accounts,
     pub endings: EndingsGame,
     pub sentences: SentenceGame,
+    /// The settings each player keeps with their progress.
+    pub preferences: Arc<dyn PreferenceRepository>,
     pub speech: SpeechService,
     /// The desktop app's downloadable speech pack; `None` on the web, where
     /// Piper runs as a service.
@@ -62,6 +66,8 @@ pub enum Accounts {
         games::endings_attempts,
         sentences::sentences_batch,
         sentences::sentences_attempts,
+        preferences::get_preferences,
+        preferences::put_preferences,
         speech::speech,
         speech::install_pack,
         speech::remove_pack,
@@ -85,6 +91,7 @@ pub fn router(state: AppState, static_dir: Option<&Path>) -> Router {
         .merge(auth::routes(&state.accounts))
         .merge(games::routes())
         .merge(sentences::routes())
+        .merge(preferences::routes())
         .merge(speech::routes(state.speech_pack.is_some()))
         .with_state(state);
     if let Some(dir) = static_dir {

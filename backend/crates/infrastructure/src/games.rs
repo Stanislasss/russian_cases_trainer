@@ -1,6 +1,8 @@
 //! Postgres implementation of the game ports.
 
-use application::game::{Attempt, AttemptRepository, ExerciseRepository, GameFilter, GameItem};
+use application::game::{
+    Attempt, AttemptRepository, ExerciseRepository, GameFilter, GameItem, KNOWN_STREAK,
+};
 use application::ports::{BoxError, RepoError};
 use async_trait::async_trait;
 use domain::game::AnswerKind;
@@ -209,14 +211,29 @@ impl ExerciseRepository for PgExerciseRepository {
         let (pos, ranks, numbers, case, whole) = filter_binds(filter);
         let rows: Vec<Row> = sqlx::query_as(&format!(
             "{ELIGIBLE},
-             -- one form per word, so a batch never asks the same word twice
+             -- words whose last $10 answers in this case by player $9 were right
+             known AS (
+                 SELECT lexeme_id FROM (
+                     SELECT lexeme_id, correct,
+                            row_number() OVER (PARTITION BY lexeme_id ORDER BY id DESC) AS recent
+                       FROM exercise_attempts
+                      WHERE user_id = $9 AND grammatical_case = $4
+                 ) latest
+                  WHERE recent <= $10
+                  GROUP BY lexeme_id
+                 HAVING count(*) = $10 AND bool_and(correct)
+             ),
+             -- one form per word, so a batch never asks the same word twice; then
+             -- weighted sampling: the highest draw^(1/weight) win, known words weigh 1/4
              picked AS (
                  SELECT * FROM (
-                     SELECT DISTINCT ON (lexeme_id) * FROM eligible
+                     SELECT DISTINCT ON (lexeme_id) *, random() AS draw FROM eligible
                       WHERE answer = ANY($6)
                       ORDER BY lexeme_id, random()
                  ) one_per_word
-                  ORDER BY random() LIMIT $7
+                  ORDER BY CASE WHEN lexeme_id IN (SELECT lexeme_id FROM known)
+                                THEN power(draw, 4) ELSE draw END DESC
+                  LIMIT $7
              )
              SELECT p.lexeme_id,
                     coalesce(l.stressed_lemma, l.lemma) AS stressed_lemma,
@@ -252,6 +269,8 @@ impl ExerciseRepository for PgExerciseRepository {
         .bind(zones)
         .bind(i64::try_from(count).unwrap_or(i64::MAX))
         .bind(filter.animacy.map(|a| a.as_str()))
+        .bind(filter.rarer_known_by.map(|u| u.0))
+        .bind(i64::try_from(KNOWN_STREAK).expect("small"))
         .fetch_all(&self.pool)
         .await
         .map_err(other)?;
@@ -375,14 +394,27 @@ mod tests {
             seed(&self.0, words).await;
             Box::new(PgExerciseRepository::new(self.0))
         }
+
+        async fn seed_with_player(
+            self,
+            words: &[NewLexeme],
+        ) -> (
+            Box<dyn ExerciseRepository>,
+            Box<dyn AttemptRepository>,
+            UserId,
+        ) {
+            seed(&self.0, words).await;
+            let player = anna(&self.0).await;
+            (
+                Box::new(PgExerciseRepository::new(self.0.clone())),
+                Box::new(PgAttemptRepository::new(self.0)),
+                player,
+            )
+        }
     }
 
-    contract_tests!(sqlx::test(migrator = "crate::MIGRATOR"), (pool: PgPool) => Pg(pool));
-
-    #[sqlx::test(migrator = "crate::MIGRATOR")]
-    async fn attempts_are_stored(pool: PgPool) {
-        seed(&pool, &nouns()).await;
-        let user = PgUserRepository::new(pool.clone())
+    async fn anna(pool: &PgPool) -> UserId {
+        PgUserRepository::new(pool.clone())
             .create_password_user(NewPasswordUser {
                 email: Email::parse("anna@example.com").unwrap(),
                 display_name: DisplayName::parse("Anna").unwrap(),
@@ -390,7 +422,16 @@ mod tests {
                 password_hash: "x".into(),
             })
             .await
-            .unwrap();
+            .unwrap()
+            .id
+    }
+
+    contract_tests!(sqlx::test(migrator = "crate::MIGRATOR"), (pool: PgPool) => Pg(pool));
+
+    #[sqlx::test(migrator = "crate::MIGRATOR")]
+    async fn attempts_are_stored(pool: PgPool) {
+        seed(&pool, &nouns()).await;
+        let user = anna(&pool).await;
         let lexeme_id: i64 = sqlx::query_scalar("SELECT id FROM lexemes WHERE lemma = 'книга'")
             .fetch_one(&pool)
             .await
@@ -407,7 +448,7 @@ mod tests {
 
         PgAttemptRepository::new(pool.clone())
             .record(
-                user.id,
+                user,
                 "endings",
                 &[attempt("ой", true), attempt("ом", false)],
             )
@@ -418,7 +459,7 @@ mod tests {
             "SELECT answer, correct, gender, animacy FROM exercise_attempts
               WHERE user_id = $1 AND exercise_type = 'endings' ORDER BY id",
         )
-        .bind(user.id.0)
+        .bind(user.0)
         .fetch_all(&pool)
         .await
         .unwrap();
@@ -436,7 +477,7 @@ mod tests {
             ..attempt("ой", true)
         };
         let err = PgAttemptRepository::new(pool)
-            .record(user.id, "endings", &[unknown_word])
+            .record(user, "endings", &[unknown_word])
             .await
             .unwrap_err();
         assert!(matches!(err, RepoError::InvalidReference));

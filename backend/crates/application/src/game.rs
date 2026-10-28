@@ -11,6 +11,7 @@ use domain::rules::Paradigm;
 use domain::user::UserId;
 
 use crate::ports::{BoxError, RepoError};
+use crate::preferences::PreferenceRepository;
 
 pub const EXERCISE_TYPE: &str = "endings";
 pub const MAX_BATCH: usize = 50;
@@ -22,6 +23,9 @@ const MAX_ANSWER_CHARS: usize = 10;
 pub const MIN_ZONE_SHARE: f64 = 0.01;
 /// At most this many zones, the most common answers; more don't fit on a phone.
 pub const MAX_ZONES: usize = 12;
+/// A word counts as known in a case once its last this many answers in that
+/// case (in any game) were right; one mistake makes it new again.
+pub const KNOWN_STREAK: usize = 3;
 
 /// Which forms a game draws from: any selected level, in one case. The form equal
 /// to the dictionary form shown (книга, новый, я) is never asked: it gives itself away.
@@ -33,6 +37,8 @@ pub struct GameFilter {
     pub answer: AnswerKind,
     /// Only nouns of this animacy (sentence frames that need someone); `None`: any word.
     pub animacy: Option<Animacy>,
+    /// Words this player knows in `case` come up less often; `None`: all alike.
+    pub rarer_known_by: Option<UserId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,6 +94,8 @@ pub trait ExerciseRepository: Send + Sync {
     ) -> Result<Vec<String>, RepoError>;
 
     /// Up to `count` random forms matching `filter` whose answer is one of `zones`.
+    /// Words `filter.rarer_known_by` knows (see `KNOWN_STREAK`) are drawn with
+    /// a quarter of the weight of the others.
     async fn random_items(
         &self,
         filter: &GameFilter,
@@ -139,24 +147,30 @@ impl From<RepoError> for GameError {
 pub struct EndingsGame {
     exercises: Arc<dyn ExerciseRepository>,
     attempts: Arc<dyn AttemptRepository>,
+    preferences: Arc<dyn PreferenceRepository>,
 }
 
 impl EndingsGame {
     pub fn new(
         exercises: Arc<dyn ExerciseRepository>,
         attempts: Arc<dyn AttemptRepository>,
+        preferences: Arc<dyn PreferenceRepository>,
     ) -> Self {
         Self {
             exercises,
             attempts,
+            preferences,
         }
     }
 
+    /// `player`: who is playing, if anyone is logged in. Words they know come up
+    /// less often, unless they turned that off.
     pub async fn new_batch(
         &self,
         levels: &[LevelId],
         case: Case,
         count: usize,
+        player: Option<UserId>,
     ) -> Result<Batch, GameError> {
         if !(1..=MAX_BATCH).contains(&count) {
             return Err(GameError::InvalidCount);
@@ -177,6 +191,7 @@ impl EndingsGame {
             case,
             answer,
             animacy: None,
+            rarer_known_by: rarer_known_by(self.preferences.as_ref(), player).await?,
         };
 
         let mut zones = self
@@ -207,6 +222,18 @@ impl EndingsGame {
         check_attempts(attempts)?;
         Ok(self.attempts.record(user, EXERCISE_TYPE, attempts).await?)
     }
+}
+
+/// The player whose known words should come up less often, if any.
+pub(crate) async fn rarer_known_by(
+    preferences: &dyn PreferenceRepository,
+    player: Option<UserId>,
+) -> Result<Option<UserId>, GameError> {
+    let Some(user) = player else {
+        return Ok(None);
+    };
+    let wanted = preferences.get(user).await?.fewer_known_words;
+    Ok(wanted.then_some(user))
 }
 
 /// Between 1 and `MAX_ATTEMPTS` attempts, each with a plausible answer.
@@ -251,6 +278,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+    use crate::preferences::{FakePreferences, Preferences};
 
     #[derive(Default)]
     struct FakeExercises {
@@ -321,7 +349,11 @@ mod tests {
         });
         let attempts = Arc::new(FakeAttempts::default());
         (
-            EndingsGame::new(exercises.clone(), attempts.clone()),
+            EndingsGame::new(
+                exercises.clone(),
+                attempts.clone(),
+                Arc::new(FakePreferences::default()),
+            ),
             exercises,
             attempts,
         )
@@ -331,7 +363,7 @@ mod tests {
     async fn zones_follow_the_paradigm_order() {
         let (game, _, _) = game(&["ами", "ой", "ом", "ью", "ей"]);
         let batch = game
-            .new_batch(&[LevelId::BasicNouns], Case::Instrumental, 5)
+            .new_batch(&[LevelId::BasicNouns], Case::Instrumental, 5, None)
             .await
             .unwrap();
         assert_eq!(batch.answer, AnswerKind::Ending);
@@ -347,6 +379,7 @@ mod tests {
                 &[LevelId::BasicNouns, LevelId::BasicAdjectives],
                 Case::Genitive,
                 5,
+                None,
             )
             .await
             .unwrap();
@@ -358,7 +391,7 @@ mod tests {
         // -ей is a noun genitive plural ending, but here the feminine one.
         let (game, _, _) = game(&["ей", "ого", "его", "ой"]);
         let batch = game
-            .new_batch(&[LevelId::BasicAdjectives], Case::Genitive, 5)
+            .new_batch(&[LevelId::BasicAdjectives], Case::Genitive, 5, None)
             .await
             .unwrap();
         assert_eq!(batch.zones, ["ого", "его", "ой", "ей"]);
@@ -368,7 +401,7 @@ mod tests {
     async fn whole_form_zones_keep_the_repository_order() {
         let (game, exercises, _) = game(&["меня", "тебя", "его"]);
         let batch = game
-            .new_batch(&[LevelId::PersonalPronouns], Case::Genitive, 5)
+            .new_batch(&[LevelId::PersonalPronouns], Case::Genitive, 5, None)
             .await
             .unwrap();
         assert_eq!(batch.answer, AnswerKind::WholeForm);
@@ -384,7 +417,8 @@ mod tests {
             game.new_batch(
                 &[LevelId::PersonalPronouns, LevelId::BasicNouns],
                 Case::Genitive,
-                5
+                5,
+                None
             )
             .await,
             Err(GameError::MixedLevels)
@@ -402,6 +436,7 @@ mod tests {
             ],
             Case::Genitive,
             3,
+            None,
         )
         .await
         .unwrap();
@@ -412,10 +447,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn known_words_come_up_less_often_unless_turned_off() {
+        let (game, exercises, _) = game(&["ой"]);
+        let anna = UserId(Uuid::new_v4());
+        let known_by = |player| {
+            let game = game.clone();
+            let exercises = exercises.clone();
+            async move {
+                game.new_batch(&[LevelId::BasicNouns], Case::Genitive, 3, player)
+                    .await
+                    .unwrap();
+                exercises
+                    .seen_filter
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .unwrap()
+                    .rarer_known_by
+            }
+        };
+
+        assert_eq!(known_by(Some(anna)).await, Some(anna));
+        assert_eq!(known_by(None).await, None);
+
+        let off = Preferences {
+            fewer_known_words: false,
+        };
+        game.preferences.save(anna, &off).await.unwrap();
+        assert_eq!(known_by(Some(anna)).await, None);
+    }
+
+    #[tokio::test]
     async fn empty_pool_gives_an_empty_batch() {
         let (game, _, _) = game(&[]);
         let batch = game
-            .new_batch(&[LevelId::BasicNouns], Case::Dative, 10)
+            .new_batch(&[LevelId::BasicNouns], Case::Dative, 10, None)
             .await
             .unwrap();
         assert!(batch.zones.is_empty() && batch.items.is_empty());
@@ -425,12 +491,12 @@ mod tests {
     async fn batch_requests_are_validated() {
         let (game, _, _) = game(&["ой"]);
         assert!(matches!(
-            game.new_batch(&[], Case::Dative, 10).await,
+            game.new_batch(&[], Case::Dative, 10, None).await,
             Err(GameError::NoLevels)
         ));
         for count in [0, MAX_BATCH + 1] {
             assert!(matches!(
-                game.new_batch(&[LevelId::BasicNouns], Case::Dative, count)
+                game.new_batch(&[LevelId::BasicNouns], Case::Dative, count, None)
                     .await,
                 Err(GameError::InvalidCount)
             ));

@@ -2,6 +2,7 @@
 
 pub mod games;
 pub mod lexicon;
+pub mod preferences;
 pub mod security;
 pub mod speech;
 pub mod speech_pack;

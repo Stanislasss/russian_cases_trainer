@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::AppState;
-use crate::auth::CurrentUser;
+use crate::auth::{CurrentUser, Player};
 use crate::dto::{GrammaticalCase, Level};
 use crate::error::{AppError, Problem};
 use crate::games::{EndingsAttempts, EndingsItem, Translations};
@@ -96,6 +96,7 @@ impl From<Batch> for SentencesBatch {
 }
 
 /// A batch of sentences, each with one noun to put in the right case and form.
+/// Words the player keeps getting right come up less often (see `/api/preferences`).
 #[utoipa::path(
     post, path = "/api/games/sentences/batch", tag = "games",
     request_body = SentencesBatchRequest,
@@ -106,12 +107,13 @@ impl From<Batch> for SentencesBatch {
 )]
 pub async fn sentences_batch(
     State(state): State<AppState>,
+    Player(player): Player,
     Json(req): Json<SentencesBatchRequest>,
 ) -> Result<Json<SentencesBatch>, AppError> {
     let levels: Vec<LevelId> = req.levels.into_iter().map(Into::into).collect();
     let batch = state
         .sentences
-        .new_batch(&levels, req.count.unwrap_or(10))
+        .new_batch(&levels, req.count.unwrap_or(10), player.map(|p| p.id))
         .await?;
     Ok(Json(batch.into()))
 }

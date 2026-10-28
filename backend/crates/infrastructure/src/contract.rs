@@ -1,14 +1,28 @@
 //! Behaviour every `ExerciseRepository` must share, run against each database by
 //! `contract_tests!` in the adapter's own tests.
 
-use application::game::{ExerciseRepository, GameFilter, MAX_ZONES, MIN_ZONE_SHARE};
+use application::game::{
+    Attempt, AttemptRepository, ExerciseRepository, GameFilter, KNOWN_STREAK, MAX_ZONES,
+    MIN_ZONE_SHARE,
+};
 use domain::game::LevelId;
 use domain::grammar::{Animacy, Case, Gender, Locale, Number, PartOfSpeech};
 use domain::lexicon::{NewForm, NewLexeme, NewTranslation, Slot};
+use domain::user::UserId;
 
 /// A fresh database holding `words`, seen through its exercise repository.
 pub trait Seed {
     async fn seed(self, words: &[NewLexeme]) -> Box<dyn ExerciseRepository>;
+
+    /// The same, plus a player and where their answers go.
+    async fn seed_with_player(
+        self,
+        words: &[NewLexeme],
+    ) -> (
+        Box<dyn ExerciseRepository>,
+        Box<dyn AttemptRepository>,
+        UserId,
+    );
 }
 
 /// One test per contract function below, each on a fresh database from `$seed`:
@@ -26,6 +40,7 @@ macro_rules! contract_tests {
             the_dictionary_form_is_never_asked,
             personal_pronouns_are_asked_as_whole_forms,
             animacy_filters_keep_only_such_nouns,
+            known_words_come_up_less_often,
         );
     };
     (@each $attr:meta, $args:tt => $seed:expr; $($name:ident),* $(,)?) => {
@@ -121,6 +136,7 @@ fn filter(levels: &[LevelId], case: Case) -> GameFilter {
         levels,
         case,
         animacy: None,
+        rarer_known_by: None,
     }
 }
 
@@ -409,4 +425,76 @@ pub async fn animacy_filters_keep_only_such_nouns(db: impl Seed) {
         .await
         .unwrap();
     assert_eq!(zones, ["ом"]);
+}
+
+/// Known words get a quarter of the weight: of книга (known) and стол, one word
+/// drawn is книга 1 time in 5, and 1 in 2 when all words are alike.
+pub async fn known_words_come_up_less_often(db: impl Seed) {
+    use Number::*;
+    let (repo, attempts, player) = db
+        .seed_with_player(&[
+            noun("книга", 1, false, &[(Singular, &["кни\u{301}гой"])], &[]),
+            noun("стол", 2, false, &[(Singular, &["столо\u{301}м"])], &[]),
+        ])
+        .await;
+    let zones = ["ой".to_owned(), "ом".to_owned()];
+    let all_alike = filter(&[LevelId::BasicNouns], Case::Instrumental);
+    let ids: Vec<(String, i64)> = repo
+        .random_items(&all_alike, &zones, 10)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|i| (i.stressed_lemma, i.lexeme_id))
+        .collect();
+    let id = |lemma: &str| ids.iter().find(|(l, _)| l == lemma).unwrap().1;
+    let answer = |lemma, case, correct| Attempt {
+        lexeme_id: id(lemma),
+        case,
+        number: Singular,
+        gender: None,
+        animacy: None,
+        answer: "ой".into(),
+        correct,
+    };
+    let record = async |answers: Vec<Attempt>| attempts.record(player, "endings", &answers).await;
+
+    // книга: an old mistake, then right `KNOWN_STREAK` times. стол: right one
+    // time less, and right in another case, which doesn't count.
+    let mut kniga = vec![answer("книга", Case::Instrumental, false)];
+    kniga.extend((0..KNOWN_STREAK).map(|_| answer("книга", Case::Instrumental, true)));
+    record(kniga).await.unwrap();
+    let mut stol: Vec<_> = (1..KNOWN_STREAK)
+        .map(|_| answer("стол", Case::Instrumental, true))
+        .collect();
+    stol.extend((0..KNOWN_STREAK).map(|_| answer("стол", Case::Genitive, true)));
+    record(stol).await.unwrap();
+
+    const DRAWS: usize = 400;
+    let kniga_drawn = async |filter: &GameFilter| {
+        let mut n = 0;
+        for _ in 0..DRAWS {
+            let items = repo.random_items(filter, &zones, 1).await.unwrap();
+            n += usize::from(items[0].stressed_lemma == "книга");
+        }
+        n
+    };
+    let rarer = GameFilter {
+        rarer_known_by: Some(player),
+        ..all_alike.clone()
+    };
+    // Expected 80 (sd 8) against 200 (sd 10).
+    let rarely = DRAWS * 32 / 100;
+    let evenly = DRAWS * 38 / 100..=DRAWS * 62 / 100;
+
+    let n = kniga_drawn(&rarer).await;
+    assert!(n < rarely, "known word drawn {n} times of {DRAWS}");
+    let n = kniga_drawn(&all_alike).await;
+    assert!(evenly.contains(&n), "with the setting off: {n} of {DRAWS}");
+
+    // One mistake and it's new again.
+    record(vec![answer("книга", Case::Instrumental, false)])
+        .await
+        .unwrap();
+    let n = kniga_drawn(&rarer).await;
+    assert!(evenly.contains(&n), "after a mistake: {n} of {DRAWS}");
 }

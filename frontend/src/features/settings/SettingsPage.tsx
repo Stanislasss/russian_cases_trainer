@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { useConfig, useSpeechPack } from '../../shared/config/config'
 import { Button } from '../../shared/ui/Button'
+import { PracticeSettings } from './PracticeSettings'
 
-/** The desktop app's settings: the downloadable speech pack. */
+/** The desktop app's settings: how words are picked, and the downloadable speech pack. */
 export function SettingsPage() {
   const { t } = useTranslation()
   const config = useConfig()
@@ -13,6 +14,8 @@ export function SettingsPage() {
   return (
     <section className="max-w-xl space-y-6">
       <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+
+      <PracticeSettings />
 
       <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold">{t('settings.speech.title')}</h2>

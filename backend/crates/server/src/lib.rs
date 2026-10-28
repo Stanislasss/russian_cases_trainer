@@ -17,6 +17,7 @@ use domain::user::{DisplayName, Email, User, UserId};
 use infrastructure::speech::FsAudioCache;
 use infrastructure::speech_pack::{DesktopSpeech, Manifest};
 use infrastructure::sqlite::games::{SqliteAttemptRepository, SqliteExerciseRepository};
+use infrastructure::sqlite::preferences::SqlitePreferenceRepository;
 
 pub struct LocalConfig {
     /// `lexicon.sqlite`, shipped with the app.
@@ -68,16 +69,20 @@ pub async fn start_local(config: LocalConfig) -> anyhow::Result<LocalServer> {
         config.data_dir.join("speech-pack"),
         speech_pack_manifest(),
     ));
+    let preferences = Arc::new(SqlitePreferenceRepository::new(pool.clone()));
     let state = AppState {
         accounts: Accounts::Local(local_user()),
         endings: EndingsGame::new(
             Arc::new(SqliteExerciseRepository::new(pool.clone())),
             Arc::new(SqliteAttemptRepository::new(pool.clone())),
+            preferences.clone(),
         ),
         sentences: SentenceGame::new(
             Arc::new(SqliteExerciseRepository::new(pool.clone())),
             Arc::new(SqliteAttemptRepository::new(pool)),
+            preferences.clone(),
         ),
+        preferences,
         speech: SpeechService::new(
             speech.clone(),
             Arc::new(FsAudioCache::new(config.data_dir.join("speech-cache"))),

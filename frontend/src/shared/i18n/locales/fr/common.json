@@ -153,6 +153,11 @@
   },
   "settings": {
     "title": "Paramètres",
+    "practice": {
+      "title": "Mots",
+      "fewerKnownWords": "Montrer moins souvent les mots que je connais",
+      "fewerKnownWordsAbout": "Un mot réussi les 3 dernières fois dans un cas revient 4 fois moins souvent dans ce cas. Après une erreur, il revient aussi souvent que les autres."
+    },
     "speech": {
       "title": "Prononciation",
       "about": "Écoutez les mots et les exemples prononcés par la voix « Irina ». Il faut pour cela le pack vocal (environ 70 Mo), téléchargé une seule fois.",

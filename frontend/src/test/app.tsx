@@ -25,6 +25,7 @@ export function mockApi(handlers: Record<string, () => Response>) {
     'GET /api/config': () =>
       json(200, { version: '1.2.3', accounts: true, speech: { state: 'service' } }),
     'GET /api/speech': () => new Response('RIFF', { headers: { 'content-type': 'audio/wav' } }),
+    'GET /api/preferences': () => json(200, { fewer_known_words: true }),
   }
   // The API client passes a Request; speech prefetching passes a URL.
   const fetchMock = vi.fn(async (input: Request | string) => {
@@ -38,11 +39,12 @@ export function mockApi(handlers: Record<string, () => Response>) {
   return fetchMock
 }
 
-/** The bodies of all requests made to `path`. */
+/** The bodies of all requests made to `path` (GETs have none). */
 export async function requestBodies(fetchMock: ReturnType<typeof mockApi>, path: string) {
   const requests = fetchMock.mock.calls
     .map(([r]) => r)
     .filter((r): r is Request => typeof r !== 'string' && r.url.endsWith(path))
+    .filter((r) => r.method !== 'GET')
   return Promise.all(requests.map((r) => r.clone().json()))
 }
 

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import i18n from '../../shared/i18n'
 import { json, mockApi, problem, renderAt, requestBodies } from '../../test/app'
@@ -89,4 +89,11 @@ test('safeNext only allows in-app paths', () => {
   expect(safeNext('//evil.example')).toBe('/')
   expect(safeNext('https://evil.example')).toBe('/')
   expect(safeNext(null)).toBe('/')
+})
+
+test('logged-in players find the word settings on their account page', async () => {
+  mockApi({ 'GET /api/me': () => json(200, anna) })
+  renderAt('/account')
+  const setting = await screen.findByRole('checkbox', { name: /Show words I know less often/ })
+  await waitFor(() => expect(setting).toBeChecked())
 })

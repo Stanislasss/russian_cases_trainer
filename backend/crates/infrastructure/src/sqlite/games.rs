@@ -1,7 +1,9 @@
 //! SQLite implementation of the game ports. The queries mirror the Postgres ones
 //! in `crate::games`; arrays travel as JSON.
 
-use application::game::{Attempt, AttemptRepository, ExerciseRepository, GameFilter, GameItem};
+use application::game::{
+    Attempt, AttemptRepository, ExerciseRepository, GameFilter, GameItem, KNOWN_STREAK,
+};
 use application::ports::{BoxError, RepoError};
 use async_trait::async_trait;
 use domain::game::AnswerKind;
@@ -121,15 +123,34 @@ impl ExerciseRepository for SqliteExerciseRepository {
         let (levels, case, whole) = filter_binds(filter);
         let rows: Vec<Row> = sqlx::query_as(&format!(
             "{ELIGIBLE},
-             -- one form per word, so a batch never asks the same word twice
-             picked AS (
-                 SELECT * FROM (
+             -- words whose last ?8 answers in this case were right (when ?7)
+             known AS (
+                 SELECT lexeme_id FROM (
+                     SELECT lexeme_id, correct,
+                            row_number() OVER (PARTITION BY lexeme_id ORDER BY id DESC) AS recent
+                       FROM exercise_attempts
+                      WHERE ?7 AND grammatical_case = ?2
+                 ) latest
+                  WHERE recent <= ?8
+                  GROUP BY lexeme_id
+                 HAVING count(*) = ?8 AND min(correct) = 1
+             ),
+             -- one form per word, so a batch never asks the same word twice, with
+             -- a draw in [0, 1); materialized so that the draw stays one number
+             one_per_word AS MATERIALIZED (
+                 SELECT *, random() / 18446744073709551616.0 + 0.5 AS draw FROM (
                      SELECT *, row_number() OVER (PARTITION BY lexeme_id ORDER BY random()) AS nth
                        FROM eligible
                       WHERE answer IN (SELECT value FROM json_each(?4))
-                 ) one_per_word
+                 ) forms_in_zones
                   WHERE nth = 1
-                  ORDER BY random() LIMIT ?5
+             ),
+             -- weighted sampling: the highest draw^(1/weight) win; known words weigh 1/4
+             picked AS (
+                 SELECT * FROM one_per_word
+                  ORDER BY CASE WHEN lexeme_id IN (SELECT lexeme_id FROM known)
+                                THEN draw * draw * draw * draw ELSE draw END DESC
+                  LIMIT ?5
              )
              SELECT p.lexeme_id,
                     coalesce(l.stressed_lemma, l.lemma) AS stressed_lemma,
@@ -159,6 +180,9 @@ impl ExerciseRepository for SqliteExerciseRepository {
         .bind(serde_json::to_string(zones).expect("plain data"))
         .bind(i64::try_from(count).unwrap_or(i64::MAX))
         .bind(filter.animacy.map(|a| a.as_str()))
+        // One local user: whoever asks, the attempts are theirs.
+        .bind(filter.rarer_known_by.is_some())
+        .bind(i64::try_from(KNOWN_STREAK).expect("small"))
         .fetch_all(&self.pool)
         .await
         .map_err(other)?;
@@ -287,6 +311,22 @@ mod tests {
         async fn seed(self, words: &[NewLexeme]) -> Box<dyn ExerciseRepository> {
             let (pool, dir) = database(words).await;
             Box::new(Held(SqliteExerciseRepository::new(pool), dir))
+        }
+
+        async fn seed_with_player(
+            self,
+            words: &[NewLexeme],
+        ) -> (
+            Box<dyn ExerciseRepository>,
+            Box<dyn AttemptRepository>,
+            UserId,
+        ) {
+            let (pool, dir) = database(words).await;
+            (
+                Box::new(Held(SqliteExerciseRepository::new(pool.clone()), dir)),
+                Box::new(SqliteAttemptRepository::new(pool)),
+                UserId(uuid::Uuid::nil()),
+            )
         }
     }
 

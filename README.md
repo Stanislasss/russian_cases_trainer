@@ -39,6 +39,8 @@ The sentences are frames in `backend/crates/domain/src/sentences.rs`, about 40 o
 
 Pronunciations come from the `tts` service, a local [Piper](https://github.com/OHF-Voice/piper1-gpl) server (GPL-3.0) with four Russian voices. Compare them on http://localhost:5002 and set `TTS_VOICE` in `.env` (then `just up`). Audio is cached in the `speech-cache` volume; without the service the game simply has no sound. The 🔊 buttons and the automatic reading in Practice can be muted.
 
+Words a player answered right the last 3 times in a case come up 4 times less often in that case (both games count; one mistake resets it). This needs their answers, so it applies to logged-in players and the desktop app. It is on by default and can be turned off on the account page (web) or in Settings (desktop).
+
 ## Desktop app
 
 A [Tauri](https://tauri.app) app (`backend/crates/desktop`) that runs the same backend inside itself on `127.0.0.1` and shows the frontend in the system's webview. It works offline and needs no Postgres:

@@ -4,6 +4,7 @@
 
 pub mod games;
 pub mod lexicon;
+pub mod preferences;
 
 use std::path::Path;
 

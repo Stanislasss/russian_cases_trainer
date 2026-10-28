@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useSession } from '../../shared/session/session'
+import { PracticeSettings } from '../settings/PracticeSettings'
 
 /** Rendered behind `RequireAuth`, so the session is always loaded here. */
 export function AccountPage() {
@@ -16,6 +17,9 @@ export function AccountPage() {
         <dt className="text-slate-500">{t('auth.email')}</dt>
         <dd>{user.email}</dd>
       </dl>
+      <div className="max-w-xl">
+        <PracticeSettings />
+      </div>
     </section>
   )
 }

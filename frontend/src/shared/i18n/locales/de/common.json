@@ -153,6 +153,11 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "practice": {
+      "title": "Wörter",
+      "fewerKnownWords": "Bekannte Wörter seltener zeigen",
+      "fewerKnownWordsAbout": "Ein Wort, das du in einem Fall die letzten 3 Male richtig hattest, kommt in diesem Fall 4-mal seltener dran. Nach einem Fehler kommt es wieder so oft wie die anderen."
+    },
     "speech": {
       "title": "Aussprache",
       "about": "Hör dir Wörter und Beispiele an, gesprochen von der Stimme „Irina“. Dafür wird das Sprachpaket (etwa 70 MB) einmal heruntergeladen.",

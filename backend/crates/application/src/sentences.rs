@@ -13,8 +13,9 @@ use rand::seq::SliceRandom;
 
 use crate::game::{
     Attempt, AttemptRepository, ExerciseRepository, GameError, GameFilter, GameItem, MAX_BATCH,
-    MAX_ZONES, MIN_ZONE_SHARE, check_attempts, sort_like_the_paradigm,
+    MAX_ZONES, MIN_ZONE_SHARE, check_attempts, rarer_known_by, sort_like_the_paradigm,
 };
+use crate::preferences::PreferenceRepository;
 
 pub const EXERCISE_TYPE: &str = "sentences";
 
@@ -37,25 +38,30 @@ pub struct SentenceBatch {
 pub struct SentenceGame {
     exercises: Arc<dyn ExerciseRepository>,
     attempts: Arc<dyn AttemptRepository>,
+    preferences: Arc<dyn PreferenceRepository>,
 }
 
 impl SentenceGame {
     pub fn new(
         exercises: Arc<dyn ExerciseRepository>,
         attempts: Arc<dyn AttemptRepository>,
+        preferences: Arc<dyn PreferenceRepository>,
     ) -> Self {
         Self {
             exercises,
             attempts,
+            preferences,
         }
     }
 
     /// Up to `count` sentences with nouns from `levels` (noun levels only), the
     /// cases taking turns. Frames no word fits are skipped, so fewer may come back.
+    /// Words `player` knows come up less often, as in the endings game.
     pub async fn new_batch(
         &self,
         levels: &[LevelId],
         count: usize,
+        player: Option<UserId>,
     ) -> Result<SentenceBatch, GameError> {
         if !(1..=MAX_BATCH).contains(&count) {
             return Err(GameError::InvalidCount);
@@ -77,6 +83,7 @@ impl SentenceGame {
                 .any(|n| specs.iter().any(|s| s.numbers.contains(n)))
         };
         let picked = pick_templates(count, fits);
+        let known_by = rarer_known_by(self.preferences.as_ref(), player).await?;
 
         // The ending buttons of each case, shared by all its frames.
         let mut zones: HashMap<Case, Vec<String>> = HashMap::new();
@@ -104,7 +111,10 @@ impl SentenceGame {
         }
         for (template, n, words) in &mut groups {
             let case_zones = &zones[&template.case];
-            let filter = filter(&specs, template.case, template.numbers, template.animacy);
+            let filter = GameFilter {
+                rarer_known_by: known_by,
+                ..filter(&specs, template.case, template.numbers, template.animacy)
+            };
             if case_zones.is_empty() || filter.levels.is_empty() {
                 continue;
             }
@@ -213,6 +223,7 @@ fn filter(
         case,
         answer: AnswerKind::Ending,
         animacy,
+        rarer_known_by: None,
     }
 }
 
@@ -225,6 +236,7 @@ mod tests {
 
     use super::*;
     use crate::ports::RepoError;
+    use crate::preferences::FakePreferences;
 
     /// Words per (case, animacy); records the filters it was asked with.
     #[derive(Default)]
@@ -292,7 +304,11 @@ mod tests {
     fn game(words: FakeWords) -> (SentenceGame, Arc<FakeWords>) {
         let words = Arc::new(words);
         (
-            SentenceGame::new(words.clone(), Arc::new(NoAttempts)),
+            SentenceGame::new(
+                words.clone(),
+                Arc::new(NoAttempts),
+                Arc::new(FakePreferences::default()),
+            ),
             words,
         )
     }
@@ -301,7 +317,7 @@ mod tests {
     async fn the_cases_take_turns_and_no_word_comes_twice() {
         let (game, _) = game(FakeWords::default());
         let batch = game
-            .new_batch(&[LevelId::IntermediateNouns], 12)
+            .new_batch(&[LevelId::IntermediateNouns], 12, None)
             .await
             .unwrap();
         assert_eq!(batch.items.len(), 12);
@@ -333,7 +349,7 @@ mod tests {
             ..Default::default()
         });
         let batch = game
-            .new_batch(&[LevelId::IntermediateNouns], 12)
+            .new_batch(&[LevelId::IntermediateNouns], 12, None)
             .await
             .unwrap();
         assert_eq!(batch.items.len(), 10);
@@ -344,7 +360,10 @@ mod tests {
     #[tokio::test]
     async fn singular_only_levels_get_no_plural_frames() {
         let (game, words) = game(FakeWords::default());
-        let batch = game.new_batch(&[LevelId::BasicNouns], 12).await.unwrap();
+        let batch = game
+            .new_batch(&[LevelId::BasicNouns], 12, None)
+            .await
+            .unwrap();
         // Nominative frames are plural only, and so are "many"/"five": they aren't
         // picked, and the round is still full.
         assert_eq!(batch.items.len(), 12);
@@ -374,7 +393,7 @@ mod tests {
     async fn o_becomes_ob_before_a_vowel() {
         let (game, _) = game(FakeWords::default());
         let batch = game
-            .new_batch(&[LevelId::IntermediateNouns], 30)
+            .new_batch(&[LevelId::IntermediateNouns], 30, None)
             .await
             .unwrap();
         for item in batch
@@ -390,16 +409,28 @@ mod tests {
     async fn only_noun_levels_can_be_played() {
         let (game, _) = game(FakeWords::default());
         assert!(matches!(
-            game.new_batch(&[LevelId::BasicAdjectives], 5).await,
+            game.new_batch(&[LevelId::BasicAdjectives], 5, None).await,
             Err(GameError::NounLevelsOnly)
         ));
         assert!(matches!(
-            game.new_batch(&[], 5).await,
+            game.new_batch(&[], 5, None).await,
             Err(GameError::NoLevels)
         ));
         assert!(matches!(
-            game.new_batch(&[LevelId::BasicNouns], 0).await,
+            game.new_batch(&[LevelId::BasicNouns], 0, None).await,
             Err(GameError::InvalidCount)
         ));
+    }
+
+    #[tokio::test]
+    async fn the_players_known_words_come_up_less_often() {
+        let (game, words) = game(FakeWords::default());
+        let anna = UserId(uuid::Uuid::new_v4());
+        game.new_batch(&[LevelId::BasicNouns], 6, Some(anna))
+            .await
+            .unwrap();
+        let filters = words.filters.lock().unwrap();
+        assert!(!filters.is_empty());
+        assert!(filters.iter().all(|f| f.rarer_known_by == Some(anna)));
     }
 }

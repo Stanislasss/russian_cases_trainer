@@ -98,7 +98,10 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** A batch of random words for the endings game, with their answers. */
+    /**
+     * A batch of random words for the endings game, with their answers. Words
+     *     the player keeps getting right come up less often (see `/api/preferences`).
+     */
     post: operations['endings_batch']
     delete?: never
     options?: never
@@ -135,7 +138,10 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** A batch of sentences, each with one noun to put in the right case and form. */
+    /**
+     * A batch of sentences, each with one noun to put in the right case and form.
+     *     Words the player keeps getting right come up less often (see `/api/preferences`).
+     */
     post: operations['sentences_batch']
     delete?: never
     options?: never
@@ -169,6 +175,24 @@ export interface paths {
     /** The logged-in user. */
     get: operations['me']
     put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/preferences': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** The logged-in player's preferences. */
+    get: operations['get_preferences']
+    /** Replaces the logged-in player's preferences. */
+    put: operations['put_preferences']
     post?: never
     delete?: never
     options?: never
@@ -359,6 +383,13 @@ export interface components {
      * @enum {string}
      */
     NounAnimacy: 'animate' | 'inanimate'
+    Preferences: {
+      /**
+       * @description A word answered right the last 3 times in a case comes up 4 times less
+       *     often in that case. On by default.
+       */
+      fewer_known_words: boolean
+    }
     Problem: {
       code: components['schemas']['ErrorCode']
       /** Format: int32 */
@@ -735,6 +766,64 @@ export interface operations {
         content: {
           'application/json': components['schemas']['UserDto']
         }
+      }
+      /** @description not logged in */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  get_preferences: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Preferences']
+        }
+      }
+      /** @description not logged in */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Problem']
+        }
+      }
+    }
+  }
+  put_preferences: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Preferences']
+      }
+    }
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description not logged in */
       401: {

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::AppState;
-use crate::auth::CurrentUser;
+use crate::auth::{CurrentUser, Player};
 use crate::dto::{
     AnswerType, DeclensionParadigm, GrammaticalCase, GrammaticalGender, GrammaticalNumber, Level,
     NounAnimacy,
@@ -118,7 +118,8 @@ impl From<Batch> for EndingsBatch {
     }
 }
 
-/// A batch of random words for the endings game, with their answers.
+/// A batch of random words for the endings game, with their answers. Words
+/// the player keeps getting right come up less often (see `/api/preferences`).
 #[utoipa::path(
     post, path = "/api/games/endings/batch", tag = "games",
     request_body = EndingsBatchRequest,
@@ -129,12 +130,18 @@ impl From<Batch> for EndingsBatch {
 )]
 async fn endings_batch(
     State(state): State<AppState>,
+    Player(player): Player,
     Json(req): Json<EndingsBatchRequest>,
 ) -> Result<Json<EndingsBatch>, AppError> {
     let levels: Vec<LevelId> = req.levels.into_iter().map(Into::into).collect();
     let batch = state
         .endings
-        .new_batch(&levels, req.case.into(), req.count.unwrap_or(10))
+        .new_batch(
+            &levels,
+            req.case.into(),
+            req.count.unwrap_or(10),
+            player.map(|p| p.id),
+        )
         .await?;
     Ok(Json(batch.into()))
 }

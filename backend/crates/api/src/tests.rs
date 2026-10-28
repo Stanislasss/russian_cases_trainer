@@ -4,6 +4,7 @@ use std::sync::Mutex;
 
 use application::game::{Attempt, AttemptRepository, ExerciseRepository, GameFilter, GameItem};
 use application::ports::{BoxError, RepoError};
+use application::preferences::Preferences;
 use application::speech::{AudioCache, PackStatus, SpeechSynthesizer};
 use async_trait::async_trait;
 use axum::body::Body;
@@ -78,7 +79,23 @@ impl SpeechPack for FakePack {
     }
 }
 
+/// One player's preferences, in memory.
+#[derive(Default)]
+struct FakePreferences(Mutex<Preferences>);
+
+#[async_trait]
+impl PreferenceRepository for FakePreferences {
+    async fn get(&self, _: UserId) -> Result<Preferences, RepoError> {
+        Ok(*self.0.lock().unwrap())
+    }
+    async fn save(&self, _: UserId, preferences: &Preferences) -> Result<(), RepoError> {
+        *self.0.lock().unwrap() = *preferences;
+        Ok(())
+    }
+}
+
 fn local_state() -> AppState {
+    let preferences = Arc::new(FakePreferences::default());
     AppState {
         accounts: Accounts::Local(User {
             id: UserId(Uuid::nil()),
@@ -87,8 +104,9 @@ fn local_state() -> AppState {
             ui_locale: Locale::En,
             created_at: Utc::now(),
         }),
-        endings: EndingsGame::new(Arc::new(NoWords), Arc::new(NoWords)),
-        sentences: SentenceGame::new(Arc::new(NoWords), Arc::new(NoWords)),
+        endings: EndingsGame::new(Arc::new(NoWords), Arc::new(NoWords), preferences.clone()),
+        sentences: SentenceGame::new(Arc::new(NoWords), Arc::new(NoWords), preferences.clone()),
+        preferences,
         speech: SpeechService::new(Arc::new(NoWords), Arc::new(NoWords)),
         speech_pack: Some(Arc::new(FakePack(Mutex::new(PackStatus::NotInstalled)))),
     }
@@ -206,6 +224,25 @@ async fn only_the_apps_own_window_may_use_the_local_server() {
     // the app itself
     let (status, _) = send(&router, request("POST", host, Some(origin))).await;
     assert_eq!(status, StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
+async fn preferences_can_be_changed() {
+    let router = router(local_state(), None);
+
+    let (status, body) = send(&router, get("/api/preferences")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, r#"{"fewer_known_words":true}"#);
+
+    let put = Request::put("/api/preferences")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"fewer_known_words":false}"#))
+        .unwrap();
+    let (status, _) = send(&router, put).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (_, body) = send(&router, get("/api/preferences")).await;
+    assert_eq!(body, r#"{"fewer_known_words":false}"#);
 }
 
 #[tokio::test]

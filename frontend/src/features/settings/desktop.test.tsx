@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import i18n from '../../shared/i18n'
-import { json, mockApi, renderAt } from '../../test/app'
+import { json, mockApi, renderAt, requestBodies } from '../../test/app'
 
 // The desktop app: one local user, and a speech pack to download.
 const me = {
@@ -104,4 +104,29 @@ test('a failed download can be retried from the header', async () => {
   renderAt('/')
   const retry = await screen.findByRole('button', { name: /Try again/ })
   expect(retry).toHaveAttribute('title', 'The download failed: no network')
+})
+
+test('known words can come up as often as the others', async () => {
+  const fetchMock = mockDesktop({
+    'PUT /api/preferences': () => new Response(null, { status: 204 }),
+  })
+  renderAt('/settings')
+  const setting = await screen.findByRole('checkbox', { name: /Show words I know less often/ })
+  await waitFor(() => expect(setting).toBeEnabled())
+  expect(setting).toBeChecked() // the default
+
+  fireEvent.click(setting)
+  await waitFor(() => expect(setting).not.toBeChecked())
+  expect(await requestBodies(fetchMock, '/api/preferences')).toEqual([{ fewer_known_words: false }])
+})
+
+test('a setting that could not be saved goes back', async () => {
+  mockDesktop({ 'PUT /api/preferences': () => new Response(null, { status: 500 }) })
+  renderAt('/settings')
+  const setting = await screen.findByRole('checkbox', { name: /Show words I know less often/ })
+  await waitFor(() => expect(setting).toBeEnabled())
+
+  fireEvent.click(setting)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong')
+  expect(setting).toBeChecked()
 })
