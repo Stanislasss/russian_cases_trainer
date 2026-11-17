@@ -9,7 +9,7 @@ use domain::game::AnswerKind;
 use domain::grammar::{Animacy, Gender, Locale};
 use domain::rules::paradigm;
 use domain::user::UserId;
-use sqlx::PgPool;
+use sqlx::{AssertSqlSafe, PgPool};
 
 use crate::lexicon::ANY;
 
@@ -160,7 +160,7 @@ impl ExerciseRepository for PgExerciseRepository {
         max_zones: usize,
     ) -> Result<Vec<String>, RepoError> {
         let (pos, ranks, numbers, case, whole) = filter_binds(filter);
-        sqlx::query_scalar(&format!(
+        sqlx::query_scalar(AssertSqlSafe(format!(
             "{ELIGIBLE}
              SELECT answer FROM (
                  SELECT answer, min(rank) AS first_rank, count(*) AS uses FROM eligible
@@ -170,7 +170,7 @@ impl ExerciseRepository for PgExerciseRepository {
                   LIMIT $7
              ) common
              ORDER BY first_rank, answer"
-        ))
+        )))
         .bind(pos)
         .bind(ranks)
         .bind(numbers)
@@ -209,7 +209,7 @@ impl ExerciseRepository for PgExerciseRepository {
         }
 
         let (pos, ranks, numbers, case, whole) = filter_binds(filter);
-        let rows: Vec<Row> = sqlx::query_as(&format!(
+        let rows: Vec<Row> = sqlx::query_as(AssertSqlSafe(format!(
             "{ELIGIBLE},
              -- words whose last $10 answers in this case by player $9 were right
              known AS (
@@ -260,7 +260,7 @@ impl ExerciseRepository for PgExerciseRepository {
                             WHERE t.lexeme_id = p.lexeme_id AND t.position < 3
                             GROUP BY t.locale) g
                ) tr"
-        ))
+        )))
         .bind(pos)
         .bind(ranks)
         .bind(numbers)

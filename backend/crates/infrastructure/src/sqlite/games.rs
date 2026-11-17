@@ -8,7 +8,7 @@ use application::ports::{BoxError, RepoError};
 use async_trait::async_trait;
 use domain::game::AnswerKind;
 use domain::user::UserId;
-use sqlx::SqlitePool;
+use sqlx::{AssertSqlSafe, SqlitePool};
 
 use crate::games::{ItemRow, level_rows};
 
@@ -74,7 +74,7 @@ impl ExerciseRepository for SqliteExerciseRepository {
         max_zones: usize,
     ) -> Result<Vec<String>, RepoError> {
         let (levels, case, whole) = filter_binds(filter);
-        sqlx::query_scalar(&format!(
+        sqlx::query_scalar(AssertSqlSafe(format!(
             "{ELIGIBLE}
              SELECT answer FROM (
                  SELECT answer, min(rank) AS first_rank, count(*) AS uses FROM eligible
@@ -84,7 +84,7 @@ impl ExerciseRepository for SqliteExerciseRepository {
                   LIMIT ?5
              ) common
              ORDER BY first_rank, answer"
-        ))
+        )))
         .bind(levels)
         .bind(case)
         .bind(whole)
@@ -121,7 +121,7 @@ impl ExerciseRepository for SqliteExerciseRepository {
         }
 
         let (levels, case, whole) = filter_binds(filter);
-        let rows: Vec<Row> = sqlx::query_as(&format!(
+        let rows: Vec<Row> = sqlx::query_as(AssertSqlSafe(format!(
             "{ELIGIBLE},
              -- words whose last ?8 answers in this case were right (when ?7)
              known AS (
@@ -173,7 +173,7 @@ impl ExerciseRepository for SqliteExerciseRepository {
                JOIN forms f ON f.lexeme_id = p.lexeme_id AND f.grammatical_case = ?2
                            AND f.number = p.number AND f.gender = p.gender
                            AND f.animacy = p.animacy AND f.variant = 0"
-        ))
+        )))
         .bind(levels)
         .bind(case)
         .bind(whole)

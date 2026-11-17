@@ -4,7 +4,7 @@ use application::ports::{BoxError, NewPasswordUser, RepoError, SessionRepository
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::user::{DisplayName, Email, User, UserId};
-use sqlx::PgPool;
+use sqlx::{AssertSqlSafe, PgPool};
 use uuid::Uuid;
 
 const USER_COLUMNS: &str = "u.id, u.email, u.display_name, u.ui_locale, u.created_at";
@@ -58,10 +58,10 @@ impl UserRepository for PgUserRepository {
     async fn create_password_user(&self, new: NewPasswordUser) -> Result<User, RepoError> {
         let mut tx = self.pool.begin().await.map_err(db_error)?;
 
-        let row: UserRow = sqlx::query_as(&format!(
+        let row: UserRow = sqlx::query_as(AssertSqlSafe(format!(
             "INSERT INTO users AS u (email, display_name, ui_locale) VALUES ($1, $2, $3)
              RETURNING {USER_COLUMNS}"
-        ))
+        )))
         .bind(new.email.as_str())
         .bind(new.display_name.as_str())
         .bind(new.ui_locale.as_str())
@@ -101,11 +101,11 @@ impl UserRepository for PgUserRepository {
             password_hash: String,
         }
 
-        let row: Option<Row> = sqlx::query_as(&format!(
+        let row: Option<Row> = sqlx::query_as(AssertSqlSafe(format!(
             "SELECT {USER_COLUMNS}, pc.password_hash
                FROM users u JOIN password_credentials pc ON pc.user_id = u.id
               WHERE u.email = $1"
-        ))
+        )))
         .bind(email.as_str())
         .fetch_optional(&self.pool)
         .await
@@ -150,11 +150,11 @@ impl SessionRepository for PgSessionRepository {
         token_hash: &[u8],
         now: DateTime<Utc>,
     ) -> Result<Option<User>, RepoError> {
-        let row: Option<UserRow> = sqlx::query_as(&format!(
+        let row: Option<UserRow> = sqlx::query_as(AssertSqlSafe(format!(
             "SELECT {USER_COLUMNS}
                FROM sessions s JOIN users u ON u.id = s.user_id
               WHERE s.token_hash = $1 AND s.expires_at > $2"
-        ))
+        )))
         .bind(token_hash)
         .bind(now)
         .fetch_optional(&self.pool)
