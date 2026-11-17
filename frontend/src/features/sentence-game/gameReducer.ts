@@ -1,7 +1,5 @@
 import type { GrammaticalCase, SentenceItem, SentencesBatch } from './api'
 
-export const ROUND = 10
-
 /**
  * Where the player is with the current sentence: picking the case, reading why
  * the case was wrong, picking the ending, reading why the ending was wrong, or
@@ -22,6 +20,9 @@ export interface Playing {
   phase: 'playing'
   items: SentenceItem[]
   zones: Partial<Record<GrammaticalCase, string[]>>
+  /** The cases offered when asking for the case; not asked when false. */
+  cases: GrammaticalCase[]
+  askCase: boolean
   index: number
   step: Step
   wrongCase: GrammaticalCase | null
@@ -37,7 +38,7 @@ export interface Finished {
 export type GameState = { phase: 'setup' } | Playing | Finished
 
 export type GameAction =
-  | { type: 'start'; batch: SentencesBatch }
+  | { type: 'start'; batch: SentencesBatch; cases: GrammaticalCase[]; askCase: boolean }
   | { type: 'chooseCase'; case: GrammaticalCase }
   | { type: 'chooseEnding'; ending: string }
   | { type: 'continue' }
@@ -55,10 +56,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'start':
       return {
         phase: 'playing',
-        items: action.batch.items.slice(0, ROUND),
+        items: action.batch.items,
         zones: Object.fromEntries(action.batch.zones.map((z) => [z.case, z.endings])),
+        cases: action.cases,
+        askCase: action.askCase,
         index: 0,
-        step: 'case',
+        step: action.askCase ? 'case' : 'ending',
         wrongCase: null,
         wrongEnding: null,
         results: [],
@@ -92,7 +95,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         index: state.index + 1,
-        step: 'case',
+        step: state.askCase ? 'case' : 'ending',
         wrongCase: null,
         wrongEnding: null,
         results,

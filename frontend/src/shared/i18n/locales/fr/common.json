@@ -174,13 +174,31 @@
   "sentences": {
     "title": "Phrases",
     "subtitle": "Trouvez le cas que demande la phrase, puis la terminaison. Chaque erreur est expliquée.",
-    "round": "Séries de {{count}} phrases avec des noms des niveaux choisis.",
-    "empty": "Aucun mot ne correspond à ces niveaux. Essayez un autre niveau.",
+    "empty": "Aucun mot ne correspond à ces réglages. Essayez d’autres niveaux, cas ou nombres.",
     "pickCase": "Quel cas ?",
     "pickEnding": "Quelle terminaison ?",
     "howTo": "Cliquez sur une réponse ou appuyez sur son numéro ; Entrée pour continuer.",
     "whyCase": "Ici, c’est le {{case}}",
-    "chosenUsedFor": "Le {{case}} s’emploie pour :"
+    "chosenUsedFor": "Le {{case}} s’emploie pour :",
+    "options": {
+      "cases": "Cas",
+      "nominativePluralOnly": "Le nominatif n’est demandé qu’au pluriel.",
+      "noCases": "Choisissez au moins un cas.",
+      "number": "Nombre",
+      "numbers": {
+        "singular": "Singulier",
+        "plural": "Pluriel",
+        "both": "Les deux"
+      },
+      "roundLength": "Série",
+      "sentences_one": "{{count}} phrase",
+      "sentences_other": "{{count}} phrases",
+      "help": "Difficulté",
+      "endingsOnly": "Terminaisons seulement",
+      "endingsOnlyHint": "Le cas est donné ; vous choisissez seulement la terminaison. Avec un seul cas, c’est toujours ainsi.",
+      "hideTranslation": "Masquer la traduction",
+      "hideTranslationHint": "La traduction apparaît une fois que vous avez répondu."
+    }
   },
   "speechOffer": {
     "enable": "Activer la prononciation",

@@ -126,6 +126,9 @@ pub enum GameError {
     /// The sentence game only fills its frames with nouns.
     #[error("only noun levels can be played in sentences")]
     NounLevelsOnly,
+    /// The sentence game needs at least one case to ask.
+    #[error("select at least one case")]
+    NoCases,
     /// Too few/many attempts, or one refers to an unknown word.
     #[error("send between 1 and {MAX_ATTEMPTS} attempts for existing words")]
     InvalidAttempts,

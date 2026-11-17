@@ -265,6 +265,27 @@ async fn sentences_take_noun_levels_only() {
 }
 
 #[tokio::test]
+async fn sentences_take_options() {
+    let router = router(local_state(), None);
+    let batch = |options: &str| {
+        Request::post("/api/games/sentences/batch")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(format!(
+                r#"{{"levels":["basic_nouns"],{options}}}"#
+            )))
+            .unwrap()
+    };
+
+    let options = r#""cases":["genitive","dative"],"numbers":["plural"],"count":30"#;
+    let (status, body) = send(&router, batch(options)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = send(&router, batch(r#""cases":[]"#)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body.contains(r#""code":"invalid_game_request""#), "{body}");
+}
+
+#[tokio::test]
 async fn an_updated_app_never_shows_a_cached_page() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("index.html"), "the app").unwrap();

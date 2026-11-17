@@ -10,19 +10,18 @@ import {
   type AttemptPayload,
   fetchSentences,
   type GrammaticalCase,
-  type Level,
   postSentenceAttempts,
 } from './api'
 import { CaseExplanation } from './CaseExplanation'
-import { fullSentence, gameReducer, initialState, type Result, ROUND } from './gameReducer'
+import { fullSentence, gameReducer, initialState, type Result } from './gameReducer'
 import { SentenceBoard } from './SentenceBoard'
-import { loadSettings, NOUN_LEVELS, saveSettings } from './settings'
+import { asksCase, loadSettings, playableCases, saveSettings } from './settings'
+import { SetupForm } from './SetupForm'
 
 /** After a right answer the sentence is spoken, then this pause before the next one. */
 const NEXT_DELAY = 1200
 
 export function SentenceGamePage() {
-  const { t } = useTranslation()
   const loggedIn = Boolean(useSession().data)
   const [settings, setSettings] = useState(loadSettings)
   const [state, dispatch] = useReducer(gameReducer, initialState)
@@ -35,9 +34,15 @@ export function SentenceGamePage() {
     setError(null)
     saveSettings(settings)
     try {
-      const batch = await fetchSentences(settings.levels, ROUND)
+      const batch = await fetchSentences(settings)
       if (batch.items.length === 0) setError('empty')
-      else dispatch({ type: 'start', batch })
+      else
+        dispatch({
+          type: 'start',
+          batch,
+          cases: playableCases(settings),
+          askCase: asksCase(settings),
+        })
     } catch {
       setError('failed')
     } finally {
@@ -87,50 +92,13 @@ export function SentenceGamePage() {
   switch (state.phase) {
     case 'setup':
       return (
-        <form
-          className="mx-auto max-w-xl space-y-6"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void start()
-          }}
-        >
-          <header className="space-y-1">
-            <h1 className="text-2xl font-bold">{t('sentences.title')}</h1>
-            <p className="text-slate-600">{t('sentences.subtitle')}</p>
-          </header>
-          <fieldset className="space-y-1">
-            <legend className="mb-1 font-semibold">{t('game.levels')}</legend>
-            {NOUN_LEVELS.map((level: Level) => (
-              <label key={level} className="flex items-baseline gap-2">
-                <input
-                  type="checkbox"
-                  checked={settings.levels.includes(level)}
-                  onChange={() =>
-                    setSettings({
-                      levels: settings.levels.includes(level)
-                        ? settings.levels.filter((l) => l !== level)
-                        : [...settings.levels, level],
-                    })
-                  }
-                />
-                {t(`game.level.${level}`)}
-              </label>
-            ))}
-          </fieldset>
-          <p className="text-sm text-slate-600">{t('sentences.round', { count: ROUND })}</p>
-          {error && (
-            <p role="alert" className="text-sm text-red-600">
-              {t(error === 'empty' ? 'sentences.empty' : 'game.failed')}
-            </p>
-          )}
-          <Button
-            type="submit"
-            disabled={settings.levels.length === 0 || starting}
-            className="w-full"
-          >
-            {starting ? t('common.loading') : t('game.start')}
-          </Button>
-        </form>
+        <SetupForm
+          settings={settings}
+          onChange={setSettings}
+          onStart={() => void start()}
+          starting={starting}
+          error={error}
+        />
       )
     case 'playing':
       return (
@@ -141,6 +109,7 @@ export function SentenceGamePage() {
           onContinue={onContinue}
           onQuit={() => dispatch({ type: 'quit' })}
           speech={speech}
+          hideTranslation={settings.hideTranslation}
         />
       )
     case 'summary':

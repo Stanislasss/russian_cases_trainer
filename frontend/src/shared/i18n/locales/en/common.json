@@ -174,13 +174,31 @@
   "sentences": {
     "title": "Sentences",
     "subtitle": "Work out which case the sentence needs, then the ending. Every mistake is explained.",
-    "round": "Rounds of {{count}} sentences with nouns from the chosen levels.",
-    "empty": "No words match these levels. Try another level.",
+    "empty": "No words match these settings. Try other levels, cases or numbers.",
     "pickCase": "Which case?",
     "pickEnding": "Which ending?",
     "howTo": "Click an answer or press its number; Enter continues.",
     "whyCase": "Here it’s the {{case}}",
-    "chosenUsedFor": "The {{case}} is used for:"
+    "chosenUsedFor": "The {{case}} is used for:",
+    "options": {
+      "cases": "Cases",
+      "nominativePluralOnly": "The nominative is only asked in the plural.",
+      "noCases": "Choose at least one case.",
+      "number": "Number",
+      "numbers": {
+        "singular": "Singular",
+        "plural": "Plural",
+        "both": "Both"
+      },
+      "roundLength": "Round",
+      "sentences_one": "{{count}} sentence",
+      "sentences_other": "{{count}} sentences",
+      "help": "Difficulty",
+      "endingsOnly": "Endings only",
+      "endingsOnlyHint": "The case is given; you only pick the ending. With a single case, this is how it works anyway.",
+      "hideTranslation": "Hide the translation",
+      "hideTranslationHint": "The translation appears once you have answered."
+    }
   },
   "speechOffer": {
     "enable": "Enable pronunciation",

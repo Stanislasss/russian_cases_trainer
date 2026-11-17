@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import i18n from '../../shared/i18n'
 import { json, mockApi, mockAudio, renderAt, requestBodies } from '../../test/app'
@@ -61,7 +61,9 @@ beforeEach(async () => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-async function startRound() {
+/** Starts a round with the default settings, or `settings` as if saved last time. */
+async function startRound(settings?: object) {
+  if (settings) localStorage.setItem('sentence-game.settings', JSON.stringify(settings))
   const fetchMock = mockApi({ 'POST /api/games/sentences/batch': batch })
   renderAt('/play/sentences')
   fireEvent.click(screen.getByRole('button', { name: 'Start' }))
@@ -72,7 +74,12 @@ async function startRound() {
 test('only noun levels are offered, basic by default', async () => {
   const fetchMock = await startRound()
   const [body] = await requestBodies(fetchMock, '/api/games/sentences/batch')
-  expect(body).toEqual({ levels: ['basic_nouns'], count: 10 })
+  expect(body).toEqual({
+    levels: ['basic_nouns'],
+    cases: ['nominative', 'genitive', 'dative', 'accusative', 'instrumental', 'prepositional'],
+    numbers: ['singular', 'plural'],
+    count: 10,
+  })
 })
 
 test('the sentence shows the noun and the translation with its meaning', async () => {
@@ -139,4 +146,70 @@ test('the noun can be heard, and a wrong ending plays the corrected sentence', a
   expect(await screen.findByText('кни́ге', { selector: 'p[lang=ru] strong' })).toBeInTheDocument()
   await waitFor(() => expect(spoken).toContain('Я ду́маю о кни́ге.'))
   expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
+})
+
+test('the options go with the request', async () => {
+  const fetchMock = mockApi({ 'POST /api/games/sentences/batch': batch })
+  renderAt('/play/sentences')
+  for (const c of ['Nominative', 'Dative', 'Accusative', 'Instrumental']) {
+    fireEvent.click(screen.getByRole('checkbox', { name: c }))
+  }
+  fireEvent.click(screen.getByRole('radio', { name: 'Plural' }))
+  fireEvent.click(screen.getByRole('radio', { name: '20 sentences' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+  await screen.findByText('кни́га')
+
+  const [body] = await requestBodies(fetchMock, '/api/games/sentences/batch')
+  expect(body).toEqual({
+    levels: ['basic_nouns'],
+    cases: ['genitive', 'prepositional'],
+    numbers: ['plural'],
+    count: 20,
+  })
+})
+
+test('only the chosen cases are offered', async () => {
+  await startRound({ levels: ['basic_nouns'], cases: ['genitive', 'prepositional'] })
+  expect(screen.getByText('Which case?')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /^Dative/ })).not.toBeInTheDocument()
+  fireEvent.keyDown(window, { key: '2' }) // the second offered: Prepositional
+  expect(await screen.findByText('Which ending?')).toBeInTheDocument()
+})
+
+test('with one case, or endings only, the case is not asked', async () => {
+  await startRound({ levels: ['basic_nouns'], cases: ['prepositional'] })
+  expect(screen.queryByText('Which case?')).not.toBeInTheDocument()
+  expect(screen.getByText('Which ending?')).toBeInTheDocument()
+  vi.unstubAllGlobals()
+  cleanup()
+
+  await startRound({ levels: ['basic_nouns'], endingsOnly: true })
+  expect(screen.queryByText('Which case?')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '-е' }))
+  // The next sentence starts at its ending too.
+  fireEvent.click(await screen.findByRole('button', { name: 'Next →' }))
+  expect(await screen.findByText('стол')).toBeInTheDocument()
+  expect(screen.getByText('Which ending?')).toBeInTheDocument()
+})
+
+test('a hidden translation shows once the sentence is answered', async () => {
+  await startRound({ levels: ['basic_nouns'], hideTranslation: true })
+  expect(screen.queryByText('book')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /^Prepositional/ }))
+  fireEvent.click(await screen.findByRole('button', { name: '-е' }))
+  expect(await screen.findByText('book')).toBeInTheDocument()
+})
+
+test('the nominative needs the plural', async () => {
+  mockApi({})
+  renderAt('/play/sentences')
+  fireEvent.click(screen.getByRole('radio', { name: 'Singular' }))
+  expect(screen.getByRole('checkbox', { name: 'Nominative' })).toBeDisabled()
+  expect(screen.getByText('The nominative is only asked in the plural.')).toBeInTheDocument()
+
+  for (const c of ['Genitive', 'Dative', 'Accusative', 'Instrumental', 'Prepositional']) {
+    fireEvent.click(screen.getByRole('checkbox', { name: c }))
+  }
+  expect(screen.getByRole('alert')).toHaveTextContent('Choose at least one case.')
+  expect(screen.getByRole('button', { name: 'Start' })).toBeDisabled()
 })

@@ -174,13 +174,31 @@
   "sentences": {
     "title": "Sätze",
     "subtitle": "Finde den Fall, den der Satz braucht, dann die Endung. Jeder Fehler wird erklärt.",
-    "round": "Runden mit {{count}} Sätzen und Nomen aus den gewählten Stufen.",
-    "empty": "Keine Wörter passen zu diesen Stufen. Versuch eine andere Stufe.",
+    "empty": "Zu diesen Einstellungen passen keine Wörter. Versuch andere Stufen, Fälle oder Zahlen.",
     "pickCase": "Welcher Fall?",
     "pickEnding": "Welche Endung?",
     "howTo": "Klick eine Antwort an oder drück ihre Zahl; Enter geht weiter.",
     "whyCase": "Hier ist es der {{case}}",
-    "chosenUsedFor": "Der {{case}} steht für:"
+    "chosenUsedFor": "Der {{case}} steht für:",
+    "options": {
+      "cases": "Fälle",
+      "nominativePluralOnly": "Der Nominativ wird nur im Plural abgefragt.",
+      "noCases": "Wähle mindestens einen Fall.",
+      "number": "Zahl",
+      "numbers": {
+        "singular": "Singular",
+        "plural": "Plural",
+        "both": "Beides"
+      },
+      "roundLength": "Runde",
+      "sentences_one": "{{count}} Satz",
+      "sentences_other": "{{count}} Sätze",
+      "help": "Schwierigkeit",
+      "endingsOnly": "Nur Endungen",
+      "endingsOnlyHint": "Der Fall ist vorgegeben, du wählst nur die Endung. Bei nur einem Fall ist das ohnehin so.",
+      "hideTranslation": "Übersetzung ausblenden",
+      "hideTranslationHint": "Die Übersetzung erscheint, sobald du geantwortet hast."
+    }
   },
   "speechOffer": {
     "enable": "Aussprache aktivieren",

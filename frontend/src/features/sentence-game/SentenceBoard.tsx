@@ -9,10 +9,9 @@ import type { Speech } from '../../shared/speech/useSpeech'
 import { AnswerButton } from '../../shared/ui/AnswerButton'
 import { Button } from '../../shared/ui/Button'
 import { translationFor } from '../endings-game/format'
-import { CASES } from '../endings-game/settings'
 import type { GrammaticalCase, SentenceItem } from './api'
 import { CaseExplanation } from './CaseExplanation'
-import { current, type Playing, ROUND } from './gameReducer'
+import { current, type Playing } from './gameReducer'
 
 interface Props {
   state: Playing
@@ -21,17 +20,27 @@ interface Props {
   onContinue: () => void
   onQuit: () => void
   speech: Speech
+  /** The sentence's translation shows only once it's answered. */
+  hideTranslation?: boolean
 }
 
 const NO_ZONES: string[] = []
 
-/** One sentence: pick the case (keys 1–6), then the ending (keys 1–9). */
-export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, speech }: Props) {
+/** One sentence: pick the case if asked (keys 1–6), then the ending (keys 1–9). */
+export function SentenceBoard({
+  state,
+  onCase,
+  onEnding,
+  onContinue,
+  onQuit,
+  speech,
+  hideTranslation = false,
+}: Props) {
   const { t } = useTranslation()
   const g = useGrammarTexts()
   const item = current(state)
   const zones = state.zones[item.case] ?? NO_ZONES
-  const { step } = state
+  const { step, cases } = state
   const caseStep = step === 'case' || step === 'caseMistake'
   // A side panel (explanation, Next) only after an answer; centred until then.
   const panel = step !== 'case' && step !== 'ending'
@@ -44,12 +53,12 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
       }
       const index = Number(e.key) - 1
       if (!Number.isInteger(index) || index < 0) return
-      if (step === 'case' && index < CASES.length) onCase(CASES[index])
+      if (step === 'case' && index < cases.length) onCase(cases[index])
       if (step === 'ending' && index < zones.length) onEnding(zones[index])
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [step, zones, onCase, onEnding, onContinue])
+  }, [step, cases, zones, onCase, onEnding, onContinue])
 
   return (
     <div
@@ -60,7 +69,7 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
           <span className="font-medium">
             {t('game.progress', {
               done: state.results.length,
-              total: Math.min(ROUND, state.items.length),
+              total: state.items.length,
             })}
           </span>
           <span>
@@ -84,6 +93,7 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
         <Sentence
           item={item}
           done={step === 'correct' || step === 'endingMistake'}
+          hideTranslation={hideTranslation}
           speak={speech.listen}
         />
 
@@ -91,7 +101,7 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
           <div className="space-y-2">
             <p className="text-center font-medium">{t('sentences.pickCase')}</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {CASES.map((c, i) => (
+              {cases.map((c, i) => (
                 <AnswerButton
                   key={c}
                   shortcut={i + 1}
@@ -167,21 +177,25 @@ export function SentenceBoard({ state, onCase, onEnding, onContinue, onQuit, spe
 }
 
 /** The sentence with its noun: the dictionary form until it's solved, then the
- *  right form (also after a wrong ending, to show what it should have been). */
+ *  right form (also after a wrong ending, to show what it should have been).
+ *  With `hideTranslation`, the translation waits until then too. */
 function Sentence({
   item,
   done,
+  hideTranslation,
   speak,
 }: {
   item: SentenceItem
   done: boolean
+  hideTranslation: boolean
   speak?: (text: string) => void
 }) {
   const { t, i18n } = useTranslation()
   // The first meaning only: the dictionaries list several ("position, location, …").
   const meaning = translationFor(item.word, i18n.resolvedLanguage)?.split(/[;,]/)[0].trim()
   const translations: Partial<Record<string, string | null>> = item.translations
-  const sentenceTranslation = i18n.resolvedLanguage ? translations[i18n.resolvedLanguage] : null
+  const sentenceTranslation =
+    i18n.resolvedLanguage && (done || !hideTranslation) ? translations[i18n.resolvedLanguage] : null
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center sm:px-8 sm:py-10">

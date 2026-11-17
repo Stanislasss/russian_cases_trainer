@@ -55,16 +55,23 @@ impl SentenceGame {
     }
 
     /// Up to `count` sentences with nouns from `levels` (noun levels only), the
-    /// cases taking turns. Frames no word fits are skipped, so fewer may come back.
-    /// Words `player` knows come up less often, as in the endings game.
+    /// `cases` taking turns. `numbers` replaces the levels' own (basic nouns are
+    /// singular only); `None` keeps them. Frames no word fits are skipped, so
+    /// fewer may come back. Words `player` knows come up less often, as in the
+    /// endings game.
     pub async fn new_batch(
         &self,
         levels: &[LevelId],
+        cases: &[Case],
+        numbers: Option<&'static [Number]>,
         count: usize,
         player: Option<UserId>,
     ) -> Result<SentenceBatch, GameError> {
         if !(1..=MAX_BATCH).contains(&count) {
             return Err(GameError::InvalidCount);
+        }
+        if cases.is_empty() {
+            return Err(GameError::NoCases);
         }
         let mut specs: Vec<LevelSpec> = levels.iter().map(|l| l.spec()).collect();
         specs.sort_by_key(|s| s.max_rank);
@@ -75,12 +82,19 @@ impl SentenceGame {
         if specs.iter().any(|s| s.pos != PartOfSpeech::Noun) {
             return Err(GameError::NounLevelsOnly);
         }
+        if let Some(numbers) = numbers {
+            for spec in &mut specs {
+                spec.numbers = numbers;
+            }
+        }
 
-        // Only frames the levels can fill (no plural-only frames for singular levels).
+        // Only frames of the chosen cases that the levels can fill (no
+        // plural-only frames for singular levels).
         let fits = |t: &Template| {
-            t.numbers
-                .iter()
-                .any(|n| specs.iter().any(|s| s.numbers.contains(n)))
+            cases.contains(&t.case)
+                && t.numbers
+                    .iter()
+                    .any(|n| specs.iter().any(|s| s.numbers.contains(n)))
         };
         let picked = pick_templates(count, fits);
         let known_by = rarer_known_by(self.preferences.as_ref(), player).await?;
@@ -317,7 +331,7 @@ mod tests {
     async fn the_cases_take_turns_and_no_word_comes_twice() {
         let (game, _) = game(FakeWords::default());
         let batch = game
-            .new_batch(&[LevelId::IntermediateNouns], 12, None)
+            .new_batch(&[LevelId::IntermediateNouns], Case::ALL, None, 12, None)
             .await
             .unwrap();
         assert_eq!(batch.items.len(), 12);
@@ -349,7 +363,7 @@ mod tests {
             ..Default::default()
         });
         let batch = game
-            .new_batch(&[LevelId::IntermediateNouns], 12, None)
+            .new_batch(&[LevelId::IntermediateNouns], Case::ALL, None, 12, None)
             .await
             .unwrap();
         assert_eq!(batch.items.len(), 10);
@@ -361,7 +375,7 @@ mod tests {
     async fn singular_only_levels_get_no_plural_frames() {
         let (game, words) = game(FakeWords::default());
         let batch = game
-            .new_batch(&[LevelId::BasicNouns], 12, None)
+            .new_batch(&[LevelId::BasicNouns], Case::ALL, None, 12, None)
             .await
             .unwrap();
         // Nominative frames are plural only, and so are "many"/"five": they aren't
@@ -393,7 +407,7 @@ mod tests {
     async fn o_becomes_ob_before_a_vowel() {
         let (game, _) = game(FakeWords::default());
         let batch = game
-            .new_batch(&[LevelId::IntermediateNouns], 30, None)
+            .new_batch(&[LevelId::IntermediateNouns], Case::ALL, None, 30, None)
             .await
             .unwrap();
         for item in batch
@@ -409,24 +423,98 @@ mod tests {
     async fn only_noun_levels_can_be_played() {
         let (game, _) = game(FakeWords::default());
         assert!(matches!(
-            game.new_batch(&[LevelId::BasicAdjectives], 5, None).await,
+            game.new_batch(&[LevelId::BasicAdjectives], Case::ALL, None, 5, None)
+                .await,
             Err(GameError::NounLevelsOnly)
         ));
         assert!(matches!(
-            game.new_batch(&[], 5, None).await,
+            game.new_batch(&[], Case::ALL, None, 5, None).await,
             Err(GameError::NoLevels)
         ));
         assert!(matches!(
-            game.new_batch(&[LevelId::BasicNouns], 0, None).await,
+            game.new_batch(&[LevelId::BasicNouns], Case::ALL, None, 0, None)
+                .await,
             Err(GameError::InvalidCount)
         ));
+        assert!(matches!(
+            game.new_batch(&[LevelId::BasicNouns], &[], None, 5, None)
+                .await,
+            Err(GameError::NoCases)
+        ));
+    }
+
+    #[tokio::test]
+    async fn only_the_chosen_cases_come_up() {
+        let (game, _) = game(FakeWords::default());
+        let chosen = [Case::Genitive, Case::Dative];
+        let batch = game
+            .new_batch(&[LevelId::IntermediateNouns], &chosen, None, 10, None)
+            .await
+            .unwrap();
+        assert_eq!(batch.items.len(), 10);
+        for case in chosen {
+            let n = batch
+                .items
+                .iter()
+                .filter(|i| i.template.case == case)
+                .count();
+            assert_eq!(n, 5, "{case}");
+        }
+        let zone_cases: Vec<Case> = batch.zones.iter().map(|(c, _)| *c).collect();
+        assert_eq!(zone_cases, chosen);
+    }
+
+    #[tokio::test]
+    async fn the_chosen_number_replaces_the_levels_own() {
+        // Basic nouns are singular only, but can be played in the plural.
+        let (game, words) = game(FakeWords::default());
+        let batch = game
+            .new_batch(
+                &[LevelId::BasicNouns],
+                Case::ALL,
+                Some(&[Number::Plural]),
+                12,
+                None,
+            )
+            .await
+            .unwrap();
+        // The plural-only nominative frames now fit too.
+        assert!(
+            batch
+                .items
+                .iter()
+                .any(|i| i.template.case == Case::Nominative)
+        );
+        let filters = words.filters.lock().unwrap();
+        assert!(
+            filters
+                .iter()
+                .flat_map(|f| &f.levels)
+                .all(|l| l.numbers == [Number::Plural])
+        );
+    }
+
+    #[tokio::test]
+    async fn singular_nominatives_dont_exist() {
+        let (game, _) = game(FakeWords::default());
+        let batch = game
+            .new_batch(
+                &[LevelId::IntermediateNouns],
+                &[Case::Nominative],
+                Some(&[Number::Singular]),
+                5,
+                None,
+            )
+            .await
+            .unwrap();
+        assert!(batch.items.is_empty());
     }
 
     #[tokio::test]
     async fn the_players_known_words_come_up_less_often() {
         let (game, words) = game(FakeWords::default());
         let anna = UserId(uuid::Uuid::new_v4());
-        game.new_batch(&[LevelId::BasicNouns], 6, Some(anna))
+        game.new_batch(&[LevelId::BasicNouns], Case::ALL, None, 6, Some(anna))
             .await
             .unwrap();
         let filters = words.filters.lock().unwrap();

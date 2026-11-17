@@ -424,10 +424,17 @@ export interface components {
       zones: components['schemas']['CaseZones'][]
     }
     SentencesBatchRequest: {
+      /** @description The cases asked, at least one; all when absent. */
+      cases?: components['schemas']['GrammaticalCase'][] | null
       /** @description 1–50, default 10. Fewer may come back when no word fits a frame. */
       count?: number | null
       /** @description Noun levels the words come from. */
       levels: components['schemas']['Level'][]
+      /**
+       * @description Singular, plural or both, replacing the levels' own (basic nouns are
+       *     singular only); as the levels say when absent or empty.
+       */
+      numbers?: components['schemas']['GrammaticalNumber'][] | null
     }
     /** @description Whether words can be pronounced. */
     SpeechStatus:
@@ -720,7 +727,7 @@ export interface operations {
           'application/json': components['schemas']['SentencesBatch']
         }
       }
-      /** @description no level, a level that isn't nouns, or bad count */
+      /** @description no level or case, a level that isn't nouns, or bad count */
       422: {
         headers: {
           [name: string]: unknown

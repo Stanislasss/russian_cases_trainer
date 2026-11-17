@@ -6,12 +6,13 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::{Json, Router, routing::post};
 use domain::game::LevelId;
+use domain::grammar::{Case, Number};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::AppState;
 use crate::auth::{CurrentUser, Player};
-use crate::dto::{GrammaticalCase, Level};
+use crate::dto::{GrammaticalCase, GrammaticalNumber, Level};
 use crate::error::{AppError, Problem};
 use crate::games::{EndingsAttempts, EndingsItem, Translations};
 
@@ -25,8 +26,27 @@ pub fn routes() -> Router<AppState> {
 pub struct SentencesBatchRequest {
     /// Noun levels the words come from.
     levels: Vec<Level>,
+    /// The cases asked, at least one; all when absent.
+    cases: Option<Vec<GrammaticalCase>>,
+    /// Singular, plural or both, replacing the levels' own (basic nouns are
+    /// singular only); as the levels say when absent or empty.
+    numbers: Option<Vec<GrammaticalNumber>>,
     /// 1–50, default 10. Fewer may come back when no word fits a frame.
     count: Option<usize>,
+}
+
+/// The chosen numbers as one of the slices levels use; `None`: none chosen.
+fn numbers(chosen: &[GrammaticalNumber]) -> Option<&'static [Number]> {
+    let has = |n| chosen.contains(&n);
+    match (
+        has(GrammaticalNumber::Singular),
+        has(GrammaticalNumber::Plural),
+    ) {
+        (true, true) => Some(Number::ALL),
+        (true, false) => Some(&[Number::Singular]),
+        (false, true) => Some(&[Number::Plural]),
+        (false, false) => None,
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -102,7 +122,7 @@ impl From<Batch> for SentencesBatch {
     request_body = SentencesBatchRequest,
     responses(
         (status = 200, body = SentencesBatch),
-        (status = 422, description = "no level, a level that isn't nouns, or bad count", body = Problem),
+        (status = 422, description = "no level or case, a level that isn't nouns, or bad count", body = Problem),
     )
 )]
 pub async fn sentences_batch(
@@ -111,9 +131,19 @@ pub async fn sentences_batch(
     Json(req): Json<SentencesBatchRequest>,
 ) -> Result<Json<SentencesBatch>, AppError> {
     let levels: Vec<LevelId> = req.levels.into_iter().map(Into::into).collect();
+    let cases: Vec<Case> = match req.cases {
+        Some(cases) => cases.into_iter().map(Into::into).collect(),
+        None => Case::ALL.to_vec(),
+    };
     let batch = state
         .sentences
-        .new_batch(&levels, req.count.unwrap_or(10), player.map(|p| p.id))
+        .new_batch(
+            &levels,
+            &cases,
+            req.numbers.as_deref().and_then(numbers),
+            req.count.unwrap_or(10),
+            player.map(|p| p.id),
+        )
         .await?;
     Ok(Json(batch.into()))
 }
