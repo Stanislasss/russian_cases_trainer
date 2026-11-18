@@ -3,6 +3,11 @@
 # *draft* release in the public releases repository. Publishing the draft
 # makes it the version that installed apps update to.
 #
+# The draft is created before the builds and the manifest (latest.json) is
+# written after them: the builds run in parallel, and when each created the
+# draft and edited latest.json itself, they overwrote each other (v0.1.9 lost
+# its Windows and Intel Mac entries).
+#
 # Releasing: set `version` in backend/Cargo.toml, commit, then tag `v<version>`.
 #
 # Secrets (repository settings → Secrets and variables → Actions):
@@ -22,6 +27,9 @@ permissions:
 env:
   RELEASES_OWNER: Stanislasss
   RELEASES_REPO: russian-cases-trainer-releases
+  RELEASE_NOTES: |
+    Download the file for your system below. The app isn't signed yet, so the
+    first launch shows a warning; see the README for how to open it anyway.
 
 jobs:
   lexicon:
@@ -68,9 +76,27 @@ jobs:
           name: lexicon
           path: build/lexicon.sqlite
 
+  draft:
+    name: Draft release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+    steps:
+      - name: Create the draft unless it exists (a re-run)
+        run: |
+          repo="$RELEASES_OWNER/$RELEASES_REPO"
+          existing=$(gh api "repos/$repo/releases" --paginate             --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id")
+          if [ -n "$existing" ]; then
+            echo "draft for $GITHUB_REF_NAME exists: $existing"
+          else
+            # The tag goes on the releases repository's own branch: this
+            # repository's commits don't exist there.
+            gh release create "$GITHUB_REF_NAME" --repo "$repo" --draft --target main               --title "Russian Cases Trainer $GITHUB_REF_NAME" --notes "$RELEASE_NOTES"
+          fi
+
   bundle:
     name: ${{ matrix.name }}
-    needs: lexicon
+    needs: [lexicon, draft]
     strategy:
       fail-fast: false
       matrix:
@@ -129,13 +155,29 @@ jobs:
           owner: ${{ env.RELEASES_OWNER }}
           repo: ${{ env.RELEASES_REPO }}
           tagName: ${{ github.ref_name }}
-          # The tag goes on the releases repository's own branch: this
-          # repository's commits don't exist there.
+          # Uploads to the draft made by the draft job.
           releaseCommitish: main
           releaseName: Russian Cases Trainer ${{ github.ref_name }}
-          releaseBody: |
-            Download the file for your system below. The app isn't signed yet, so the
-            first launch shows a warning; see the README for how to open it anyway.
+          releaseBody: ${{ env.RELEASE_NOTES }}
           releaseDraft: true
-          includeUpdaterJson: true
-          updaterJsonPreferNsis: true
+          # Written once by the manifest job instead.
+          includeUpdaterJson: false
+
+  manifest:
+    name: Update manifest
+    needs: bundle
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: latest.json from the uploaded update signatures
+        run: |
+          repo="$RELEASES_OWNER/$RELEASES_REPO"
+          gh release download "$GITHUB_REF_NAME" --repo "$repo" --pattern "*.sig" --dir sigs
+          printf "%s" "$RELEASE_NOTES" > notes.txt
+          node .github/scripts/updater-manifest.mjs "${GITHUB_REF_NAME#v}"             "https://github.com/$repo/releases/download/$GITHUB_REF_NAME"             notes.txt sigs latest.json
+          gh release upload "$GITHUB_REF_NAME" latest.json --repo "$repo" --clobber
