@@ -177,6 +177,7 @@
     "empty": "Zu diesen Einstellungen passen keine Wörter. Versuch andere Stufen, Fälle oder Zahlen.",
     "pickCase": "Welcher Fall?",
     "pickEnding": "Welche Endung?",
+    "inThePlural": "im Plural",
     "howTo": "Klick eine Antwort an oder drück ihre Zahl; Enter geht weiter.",
     "whyCase": "Hier ist es der {{case}}",
     "chosenUsedFor": "Der {{case}} steht für:",

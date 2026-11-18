@@ -416,6 +416,10 @@ export interface components {
       noun_phrases: components['schemas']['Translations']
       /** @description Why: one of the case's uses, as in the rules (e.g. "about", "absence"). */
       reason: string
+      /** @description The noun as shown before it's answered, stress-marked: the nominative
+       *     plural when the plural is asked (ко́мнаты), else (and in nominative
+       *     frames, where that's the answer) the dictionary form. */
+      shown: string
       template_id: string
       /** @description The sentence in en/fr/de, with ___ for the noun; no Russian. */
       translations: components['schemas']['Translations']

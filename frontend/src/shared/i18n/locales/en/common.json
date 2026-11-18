@@ -177,6 +177,7 @@
     "empty": "No words match these settings. Try other levels, cases or numbers.",
     "pickCase": "Which case?",
     "pickEnding": "Which ending?",
+    "inThePlural": "in the plural",
     "howTo": "Click an answer or press its number; Enter continues.",
     "whyCase": "Here it’s the {{case}}",
     "chosenUsedFor": "The {{case}} is used for:",

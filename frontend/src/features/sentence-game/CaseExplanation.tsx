@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { QUESTIONS } from '../../shared/grammar/cases'
+import { CaseRulesLink } from '../../shared/grammar/CaseRulesLink'
 import { useGrammarTexts } from '../../shared/grammar/texts'
 import type { UseEntry } from '../../shared/grammar/texts/types'
 import type { GrammaticalCase, SentenceItem } from './api'
@@ -42,6 +43,7 @@ export function CaseExplanation({ item, chosen }: Props) {
           ))}
         </ul>
       </div>
+      <CaseRulesLink gameCase={item.case} anchor={item.word.paradigm ?? undefined} />
     </aside>
   )
 }

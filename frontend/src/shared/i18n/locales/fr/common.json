@@ -177,6 +177,7 @@
     "empty": "Aucun mot ne correspond à ces réglages. Essayez d’autres niveaux, cas ou nombres.",
     "pickCase": "Quel cas ?",
     "pickEnding": "Quelle terminaison ?",
+    "inThePlural": "au pluriel",
     "howTo": "Cliquez sur une réponse ou appuyez sur son numéro ; Entrée pour continuer.",
     "whyCase": "Ici, c’est le {{case}}",
     "chosenUsedFor": "Le {{case}} s’emploie pour :",

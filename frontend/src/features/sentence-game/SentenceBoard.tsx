@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QUESTIONS } from '../../shared/grammar/cases'
+import { CaseRulesLink } from '../../shared/grammar/CaseRulesLink'
 import { answerLabel } from '../../shared/grammar/format'
 import { Listen } from '../../shared/grammar/Listen'
 import { RuleCard } from '../../shared/grammar/RuleCard'
@@ -167,9 +168,14 @@ export function SentenceBoard({
           </Button>
         )}
         {step === 'correct' && (
-          <Button variant="ghost" onClick={onContinue} className="w-full">
-            {t('game.next')} →
-          </Button>
+          <>
+            <p className="text-center text-sm">
+              <CaseRulesLink gameCase={item.case} anchor={item.word.paradigm ?? undefined} />
+            </p>
+            <Button variant="ghost" onClick={onContinue} className="w-full">
+              {t('game.next')} →
+            </Button>
+          </>
         )}
       </div>
     </div>
@@ -209,13 +215,15 @@ function Sentence({
           <strong className="text-green-700">{item.word.stressed_form}</strong>
         ) : (
           <span className="mx-1 inline-flex items-baseline gap-1 rounded-md border-2 border-dashed border-sky-400 bg-sky-50 px-2">
-            <span className="font-semibold">{item.word.stressed_lemma}</span>
-            {item.word.number === 'plural' && (
-              <span className="rounded bg-slate-200 px-1 align-middle text-xs font-medium text-slate-700">
-                {t('game.badges.plural')}
+            <span className="font-semibold">{item.shown}</span>
+            {/* The plural is asked but the word is in the singular: in
+                nominative frames, the plural form would be the answer. */}
+            {item.word.number === 'plural' && item.shown === item.word.stressed_lemma && (
+              <span className="rounded bg-amber-100 px-1.5 align-middle text-sm font-medium text-amber-900">
+                {t('sentences.inThePlural')}
               </span>
             )}
-            <Listen text={item.word.stressed_lemma} speak={speak} />
+            <Listen text={item.shown} speak={speak} />
           </span>
         )}
         {item.after}

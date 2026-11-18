@@ -12,6 +12,7 @@ const kniga: SentenceItem = {
   reason: 'about',
   translations: { en: 'I am thinking about ___.' },
   noun_phrases: { en: 'the book' },
+  shown: 'кни́га',
   word: {
     lexeme_id: 1,
     stressed_lemma: 'кни́га',
@@ -33,6 +34,7 @@ const stol: SentenceItem = {
   reason: 'absence',
   translations: { en: 'I have no ___.' },
   noun_phrases: {},
+  shown: 'стол',
   word: {
     lexeme_id: 2,
     stressed_lemma: 'стол',
@@ -84,11 +86,92 @@ test('only noun levels are offered, basic by default', async () => {
   })
 })
 
+/** Starts a round of just `item`. */
+async function startWith(item: SentenceItem) {
+  mockApi({
+    'POST /api/games/sentences/batch': () =>
+      json(200, { zones: [{ case: item.case, endings: ['', 'ы'] }], items: [item] }),
+  })
+  renderAt('/play/sentences')
+  fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+}
+
+const komnaty: SentenceItem = {
+  template_id: 'gen.afraid',
+  before: 'Я бою́сь ',
+  after: '.',
+  case: 'genitive',
+  reason: 'verbs',
+  translations: { en: 'I am afraid of ___.' },
+  noun_phrases: { en: 'the rooms' },
+  shown: 'ко́мнаты',
+  word: {
+    lexeme_id: 3,
+    stressed_lemma: 'ко́мната',
+    translations: { en: 'room' },
+    number: 'plural',
+    gender: null,
+    animacy: null,
+    answer: '',
+    accepted: [''],
+    stressed_form: 'ко́мнат',
+    paradigm: 'noun_a',
+  },
+}
+
+test('a plural is shown in the plural', async () => {
+  await startWith(komnaty)
+  expect(await screen.findByText('ко́мнаты')).toBeInTheDocument()
+  expect(screen.queryByText('ко́мната')).not.toBeInTheDocument()
+  expect(screen.queryByText('in the plural')).not.toBeInTheDocument()
+})
+
+test('in nominative frames, where the plural is the answer, it is only labelled', async () => {
+  await startWith({
+    ...komnaty,
+    template_id: 'nom.where',
+    before: 'Где ',
+    after: '?',
+    case: 'nominative',
+    reason: 'subject',
+    shown: 'ко́мната',
+    word: { ...komnaty.word, answer: 'ы', accepted: ['ы'], stressed_form: 'ко́мнаты' },
+  })
+  expect(await screen.findByText('ко́мната')).toBeInTheDocument()
+  expect(screen.getByText('in the plural')).toBeInTheDocument()
+})
+
 test('the sentence shows the noun and the translation with its meaning', async () => {
   await startRound()
   expect(screen.getByText('Я ду́маю о', { exact: false })).toBeInTheDocument()
   expect(screen.getByText('the book')).toBeInTheDocument() // with its article
   expect(screen.getByText('Which case?')).toBeInTheDocument()
+})
+
+test('after a right answer, the case’s rules open over the game', async () => {
+  await startRound()
+  fireEvent.click(screen.getByRole('button', { name: /^Prepositional/ }))
+  fireEvent.click(await screen.findByRole('button', { name: '-е' }))
+
+  fireEvent.click(await screen.findByRole('button', { name: /All the rules for this case/ }))
+  const rules = screen.getByRole('dialog', { name: 'Prepositional' })
+  expect(within(rules).getByRole('heading', { name: 'Prepositional' })).toBeInTheDocument()
+  // Enter belongs to the dialog, not to the game behind it.
+  fireEvent.keyDown(within(rules).getByRole('button', { name: 'Close' }), { key: 'Enter' })
+  expect(screen.getByText('кни́ге')).toBeInTheDocument()
+
+  fireEvent.click(within(rules).getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+  expect(await screen.findByText('стол')).toBeInTheDocument()
+})
+
+test('the rules of the right case open from a wrong case’s explanation', async () => {
+  await startRound()
+  fireEvent.click(screen.getByRole('button', { name: /^Genitive/ }))
+  const why = await screen.findByRole('complementary')
+  fireEvent.click(within(why).getByRole('button', { name: /All the rules for this case/ }))
+  expect(screen.getByRole('dialog', { name: 'Prepositional' })).toBeInTheDocument()
 })
 
 test('a wrong case is explained, then the ending is asked', async () => {
