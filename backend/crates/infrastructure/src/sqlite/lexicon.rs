@@ -118,6 +118,23 @@ pub async fn write_lexicon(path: &Path, lexemes: &[NewLexeme]) -> Result<usize, 
             .execute(&mut *tx)
             .await?;
         }
+
+        for noun in &word.noun_forms {
+            sqlx::query(
+                "INSERT INTO noun_forms
+                     (lexeme_id, locale, singular, plural, gender, plural_only, oblique)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            )
+            .bind(id)
+            .bind(noun.locale.as_str())
+            .bind(&noun.singular)
+            .bind(&noun.plural)
+            .bind(noun.gender.map(|g| g.as_str()))
+            .bind(noun.plural_only)
+            .bind(&noun.oblique)
+            .execute(&mut *tx)
+            .await?;
+        }
     }
     tx.commit().await?;
 

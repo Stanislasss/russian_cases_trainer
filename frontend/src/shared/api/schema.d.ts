@@ -410,6 +410,10 @@ export interface components {
       before: string
       /** @description The case the noun takes here. */
       case: components['schemas']['GrammaticalCase']
+      /** @description What goes in place of ___ in each translation: the noun with its article
+       *     and in the right form ("the dogs", "au chien", "dem Jungen"). Missing
+       *     where the noun has no meaning in that language. */
+      noun_phrases: components['schemas']['Translations']
       /** @description Why: one of the case's uses, as in the rules (e.g. "about", "absence"). */
       reason: string
       template_id: string

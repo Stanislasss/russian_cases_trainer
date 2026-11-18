@@ -212,6 +212,7 @@ fn lexeme(kind: &str, lemma: &str, stressed: &str, pos: PartOfSpeech, rank: i32)
         frequency_rank: Some(rank),
         forms: Vec::new(),
         translations: Vec::new(),
+        noun_forms: Vec::new(),
     }
 }
 

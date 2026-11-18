@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use domain::game::{AnswerKind, LevelId, LevelSpec};
 use domain::grammar::{Animacy, Case, Gender, Locale, Number, PartOfSpeech};
 use domain::inflection::{adjective_endings, noun_endings};
+use domain::noun_phrase::NounForms;
 use domain::rules::Paradigm;
 use domain::user::UserId;
 
@@ -102,6 +103,13 @@ pub trait ExerciseRepository: Send + Sync {
         zones: &[String],
         count: usize,
     ) -> Result<Vec<GameItem>, RepoError>;
+
+    /// The nouns' first meanings as nouns in other languages (gender, plural),
+    /// for translated sentences; words without any are left out. By default
+    /// none: the sentences then make do with the meanings alone.
+    async fn noun_forms(&self, _lexeme_ids: &[i64]) -> Result<Vec<(i64, NounForms)>, RepoError> {
+        Ok(Vec::new())
+    }
 }
 
 #[async_trait]

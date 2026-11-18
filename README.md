@@ -33,7 +33,7 @@ The game (`/play/endings`) shows a word in its dictionary form and the case to p
 
 The sentence game (`/play/sentences`) shows a short sentence with one noun in its dictionary form. First pick the **case** the sentence needs, then the **ending**. A wrong case is explained with the use that requires it (e.g. "After к, по, благодаря́ …") and what the chosen case is used for instead; a wrong ending shows the same rule card as the endings game. A right answer is read aloud.
 
-The sentences are frames in `backend/crates/domain/src/sentences.rs`, about 40 of them, each with its case, the reason (a use id from the frontend's `cases.ts`), allowed numbers, animacy and translations. They're filled with random nouns from the chosen levels, so frames are chosen to work with almost any noun ("Я ду́маю о ___", "У меня́ нет ___"; "Я позвони́л ___" only takes people and animals). A few sentences still come out quirky ("Я бою́сь но́са"). Place frames (в ___) are left out for that reason.
+The sentences are frames in `backend/crates/domain/src/sentences.rs`, about 40 of them, each with its case, the reason (a use id from the frontend's `cases.ts`), allowed numbers, animacy and translations. They're filled with random nouns from the chosen levels, so frames are chosen to work with almost any noun ("Я ду́маю о ___", "У меня́ нет ___"; "Я позвони́л ___" only takes people and animals). A few sentences still come out quirky ("Я бою́сь но́са"). Place frames (в ___) are left out for that reason. In the translations, the frame marks the noun with the article (and, in German, the case) it takes there (`{the}`, `{à le}`, `{der:dat}`), and `domain::noun_phrase` puts the word in with it: "I called the dog", "J’ai téléphoné au chien", "Ich helfe den Hunden". The gender and plural of the German and French words come from the noun lists the importer downloads; English plurals follow rules.
 
 ## Pronunciation
 
@@ -109,6 +109,7 @@ The Postgres and SQLite repositories share their tests (`infrastructure/src/cont
 
 - Nouns, adjectives, pronouns and their English and German translations come from [OpenRussian.org](https://en.openrussian.org), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 - French translations and Russian definitions come from the [French](https://fr.wiktionary.org) and [Russian](https://ru.wiktionary.org) Wiktionary via [kaikki.org](https://kaikki.org), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). `just import` downloads them (176 MB and 1.7 GB, cached); if a download fails, that language falls back to English.
+- The gender and plural of the German and French translations come from the [English Wiktionary](https://en.wiktionary.org) via kaikki.org (CC BY-SA 4.0): `just import` downloads its German and French noun lists (300 MB and 160 MB, cached; `--no-noun-grammar` skips them, and translated sentences then go without articles where the gender is unknown).
 - Personal pronouns, наш/ваш and the surname list are written by hand in `backend/crates/importer/src/curated.rs`; surnames are declined by rule (`domain::surname`).
 
 ## License

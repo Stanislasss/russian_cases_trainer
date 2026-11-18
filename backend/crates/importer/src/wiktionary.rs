@@ -202,6 +202,7 @@ not json
             frequency_rank: None,
             forms: Vec::new(),
             translations: Vec::new(),
+            noun_forms: Vec::new(),
         }
     }
 

@@ -6,6 +6,7 @@
 //! of the allowed animacy; place frames (в ___) are left out for that reason.
 
 use crate::grammar::{Animacy, Case, Locale, Number};
+use crate::noun_phrase::{NounForms, NounSlot, capitalize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Template {
@@ -19,7 +20,9 @@ pub struct Template {
     pub numbers: &'static [Number],
     /// Only nouns of this animacy fit (позвони́ть ___ needs someone).
     pub animacy: Option<Animacy>,
-    /// en, fr, de; `___` marks the noun. Russian needs none.
+    /// en, fr, de; a slot in braces marks the noun and says which article and
+    /// case it takes there (`{the}`, `{à le}`, `{der:dat}`: see
+    /// [`NounSlot::parse`]). Russian needs none.
     pub translations: [(Locale, &'static str); 3],
 }
 
@@ -40,6 +43,32 @@ impl Template {
             Some(start) if starts_with_vowel => format!("{start} об "),
             _ => self.before.to_owned(),
         }
+    }
+
+    /// The translation in `locale`, split around its slot: (before, slot, after).
+    fn split(&self, locale: Locale) -> Option<(&'static str, &'static str, &'static str)> {
+        let text = self.translations.iter().find(|(l, _)| *l == locale)?.1;
+        let (before, rest) = text.split_once('{')?;
+        let (slot, after) = rest.split_once('}')?;
+        Some((before, slot, after))
+    }
+
+    /// The translation in `locale` with `___` where the noun goes.
+    pub fn frame(&self, locale: Locale) -> Option<String> {
+        let (before, _, after) = self.split(locale)?;
+        Some(format!("{before}___{after}"))
+    }
+
+    /// The noun as it goes into the translation in `locale`, article included
+    /// ("au chien", "den Hunden"); capitalised at the start of the sentence.
+    pub fn noun_phrase(&self, noun: &NounForms, number: Number) -> Option<String> {
+        let (before, slot, _) = self.split(noun.locale)?;
+        let phrase = NounSlot::parse(noun.locale, slot)?.phrase(noun, number);
+        Some(if before.is_empty() {
+            capitalize(&phrase)
+        } else {
+            phrase
+        })
     }
 }
 
@@ -62,103 +91,108 @@ macro_rules! t {
 pub const TEMPLATES: &[Template] = &[
     // nominative: plural only, the singular is the dictionary form shown
     t!("nom.these", "Э́то мои́ ", ".", Nominative.predicate, PLURAL, None,
-       en: "These are my ___.", fr: "Ce sont mes ___.", de: "Das sind meine ___."),
+       en: "These are my {}.", fr: "Ce sont mes {}.", de: "Das sind meine {:nom}."),
     t!("nom.where", "Где ", "?", Nominative.subject, PLURAL, None,
-       en: "Where are the ___?", fr: "Où sont les ___ ?", de: "Wo sind die ___?"),
+       en: "Where are {the}?", fr: "Où sont {le} ?", de: "Wo sind {der:nom}?"),
     t!("nom.all", "Все ", " здесь.", Nominative.subject, PLURAL, None,
-       en: "All the ___ are here.", fr: "Tous les ___ sont ici.", de: "Alle ___ sind hier."),
+       en: "All {the} are here.", fr: "{le} sont ici, sans exception.",
+       de: "Alle {:nom} sind hier."),
     t!("nom.live", "Здесь живу́т ", ".", Nominative.subject, PLURAL, ANIMATE,
-       en: "___ live here.", fr: "Ici vivent des ___.", de: "Hier wohnen ___."),
+       en: "{} live here.", fr: "Ici vivent {un}.", de: "Hier wohnen {:nom}."),
     // genitive
     t!("gen.none", "У меня́ нет ", ".", Genitive.absence, BOTH, None,
-       en: "I have no ___.", fr: "Je n’ai pas de ___.", de: "Ich habe kein(e) ___."),
+       en: "I have no {}.", fr: "Je n’ai pas {de}.", de: "Ich habe {kein:acc}."),
     t!("gen.wasnt", "Вчера́ здесь не́ было ", ".", Genitive.absence, BOTH, None,
-       en: "Yesterday there was no ___ here.", fr: "Hier, il n’y avait pas de ___ ici.",
-       de: "Gestern gab es hier kein(e) ___."),
+       en: "Yesterday we had no {} here.", fr: "Hier, il n’y avait pas {de} ici.",
+       de: "Gestern gab es hier {kein:acc}."),
     t!("gen.afraid", "Я бою́сь ", ".", Genitive.verbs, BOTH, None,
-       en: "I am afraid of ___.", fr: "J’ai peur de ___.", de: "Ich habe Angst vor ___."),
+       en: "I am afraid of {the}.", fr: "J’ai peur {de le}.", de: "Ich habe Angst vor {der:dat}."),
     t!("gen.without", "Я не могу́ жить без ", ".", Genitive.prepositions, BOTH, None,
-       en: "I can’t live without ___.", fr: "Je ne peux pas vivre sans ___.",
-       de: "Ich kann nicht ohne ___ leben."),
+       en: "I can’t live without {the}.", fr: "Je ne peux pas vivre sans {le}.",
+       de: "Ich kann nicht ohne {der:acc} leben."),
     t!("gen.near", "Мы сиди́м о́коло ", ".", Genitive.prepositions, BOTH, None,
-       en: "We are sitting near ___.", fr: "Nous sommes assis près de ___.",
-       de: "Wir sitzen in der Nähe von ___."),
+       en: "We are sitting near {the}.", fr: "Nous sommes assis près {de le}.",
+       de: "Wir sitzen neben {der:dat}."),
     t!("gen.for", "Э́то пода́рок для ", ".", Genitive.prepositions, BOTH, ANIMATE,
-       en: "This is a present for ___.", fr: "C’est un cadeau pour ___.",
-       de: "Das ist ein Geschenk für ___."),
+       en: "This is a present for {the}.", fr: "C’est un cadeau pour {le}.",
+       de: "Das ist ein Geschenk für {der:acc}."),
     t!("gen.house", "Э́то дом ", ".", Genitive.possession, BOTH, ANIMATE,
-       en: "This is the house of ___.", fr: "C’est la maison de ___.",
-       de: "Das ist das Haus von ___."),
+       en: "This is the house of {the}.", fr: "C’est la maison {de le}.",
+       de: "Dieses Haus gehört {der:dat}."),
     t!("gen.many", "Здесь мно́го ", ".", Genitive.quantity, PLURAL, None,
-       en: "There are many ___ here.", fr: "Il y a beaucoup de ___ ici.",
-       de: "Hier gibt es viele ___."),
+       en: "There are many {} here.", fr: "Il y a beaucoup {de} ici.",
+       de: "Hier gibt es viele {:acc}."),
     t!("gen.five", "У нас пять ", ".", Genitive.quantity, PLURAL, None,
-       en: "We have five ___.", fr: "Nous avons cinq ___.", de: "Wir haben fünf ___."),
+       en: "We have five {}.", fr: "Nous avons cinq {}.", de: "Wir haben fünf {:acc}."),
     // dative
     t!("dat.towards", "Мы идём к ", ".", Dative.prepositions, BOTH, None,
-       en: "We are going to ___.", fr: "Nous allons vers ___.", de: "Wir gehen zu ___."),
+       en: "We are going to {the}.", fr: "Nous allons vers {le}.", de: "Wir gehen {zu der:dat}."),
     t!("dat.miss", "Я скуча́ю по ", ".", Dative.prepositions, BOTH, None,
-       en: "I miss ___.", fr: "___ me manque.", de: "Ich vermisse ___."),
+       en: "I miss {the}.", fr: "Je m’ennuie {de le}.", de: "Ich vermisse {der:acc}."),
     t!("dat.thanks", "Всё получи́лось благодаря́ ", ".", Dative.prepositions, BOTH, None,
-       en: "It all worked out thanks to ___.", fr: "Tout a réussi grâce à ___.",
-       de: "Alles hat dank ___ geklappt."),
+       en: "It all worked out thanks to {the}.", fr: "Tout a réussi grâce {à le}.",
+       de: "Alles hat dank {der:dat} geklappt."),
     t!("dat.call", "Я позвони́л ", ".", Dative.verbs, BOTH, ANIMATE,
-       en: "I called ___.", fr: "J’ai téléphoné à ___.", de: "Ich habe ___ angerufen."),
+       en: "I called {the}.", fr: "J’ai téléphoné {à le}.", de: "Ich habe {der:acc} angerufen."),
     t!("dat.help", "Я помога́ю ", ".", Dative.verbs, BOTH, ANIMATE,
-       en: "I help ___.", fr: "J’aide ___.", de: "Ich helfe ___."),
+       en: "I help {the}.", fr: "J’aide {le}.", de: "Ich helfe {der:dat}."),
     t!("dat.give", "Я дал кни́гу ", ".", Dative.recipient, BOTH, ANIMATE,
-       en: "I gave the book to ___.", fr: "J’ai donné le livre à ___.",
-       de: "Ich habe ___ das Buch gegeben."),
+       en: "I gave the book to {the}.", fr: "J’ai donné le livre {à le}.",
+       de: "Ich habe {der:dat} das Buch gegeben."),
     t!("dat.letter", "Она́ пи́шет письмо́ ", ".", Dative.recipient, BOTH, ANIMATE,
-       en: "She is writing a letter to ___.", fr: "Elle écrit une lettre à ___.",
-       de: "Sie schreibt ___ einen Brief."),
+       en: "She is writing a letter to {the}.", fr: "Elle écrit une lettre {à le}.",
+       de: "Sie schreibt {der:dat} einen Brief."),
     // accusative
     t!("acc.see", "Я ви́жу ", ".", Accusative.object, BOTH, None,
-       en: "I see ___.", fr: "Je vois ___.", de: "Ich sehe ___."),
+       en: "I see {a}.", fr: "Je vois {un}.", de: "Ich sehe {ein:acc}."),
     t!("acc.love", "Я люблю́ ", ".", Accusative.object, BOTH, None,
-       en: "I love ___.", fr: "J’aime ___.", de: "Ich liebe ___."),
+       en: "I love {the}.", fr: "J’aime {le}.", de: "Ich liebe {der:acc}."),
     t!("acc.wait", "Мы ждём ", ".", Accusative.object, BOTH, None,
-       en: "We are waiting for ___.", fr: "Nous attendons ___.", de: "Wir warten auf ___."),
+       en: "We are waiting for {the}.", fr: "Nous attendons {le}.",
+       de: "Wir warten auf {der:acc}."),
     t!("acc.draw", "Он рису́ет ", ".", Accusative.object, BOTH, None,
-       en: "He is drawing ___.", fr: "Il dessine ___.", de: "Er zeichnet ___."),
+       en: "He is drawing {a}.", fr: "Il dessine {un}.", de: "Er zeichnet {ein:acc}."),
     t!("acc.tell", "Расскажи́ мне про ", ".", Accusative.prepositions, BOTH, None,
-       en: "Tell me about ___.", fr: "Parle-moi de ___.", de: "Erzähl mir von ___."),
+       en: "Tell me about {the}.", fr: "Parle-moi {de le}.",
+       de: "Erzähl mir etwas über {der:acc}."),
     t!("acc.thanks", "Спаси́бо за ", ".", Accusative.prepositions, BOTH, None,
-       en: "Thank you for ___.", fr: "Merci pour ___.", de: "Danke für ___."),
+       en: "Thank you for {the}.", fr: "Merci pour {le}.", de: "Danke für {der:acc}."),
     // instrumental
     t!("ins.proud", "Я горжу́сь ", ".", Instrumental.verbs, BOTH, None,
-       en: "I am proud of ___.", fr: "Je suis fier de ___.", de: "Ich bin stolz auf ___."),
+       en: "I am proud of {the}.", fr: "Je suis fier {de le}.",
+       de: "Ich bin stolz auf {der:acc}."),
     t!("ins.interested", "Он интересу́ется ", ".", Instrumental.verbs, BOTH, None,
-       en: "He is interested in ___.", fr: "Il s’intéresse à ___.",
-       de: "Er interessiert sich für ___."),
+       en: "He is interested in {the}.", fr: "Il s’intéresse {à le}.",
+       de: "Er interessiert sich für {der:acc}."),
     t!("ins.admires", "Она́ любу́ется ", ".", Instrumental.verbs, BOTH, None,
-       en: "She is admiring ___.", fr: "Elle admire ___.", de: "Sie bewundert ___."),
+       en: "She is admiring {the}.", fr: "Elle admire {le}.", de: "Sie bewundert {der:acc}."),
     t!("ins.talk", "Я говорю́ с ", ".", Instrumental.with, BOTH, ANIMATE,
-       en: "I am talking with ___.", fr: "Je parle avec ___.", de: "Ich spreche mit ___."),
+       en: "I am talking with {the}.", fr: "Je parle avec {le}.",
+       de: "Ich spreche mit {der:dat}."),
     t!("ins.met", "Я познако́мился с ", ".", Instrumental.with, BOTH, ANIMATE,
-       en: "I got to know ___.", fr: "J’ai fait la connaissance de ___.",
-       de: "Ich habe ___ kennengelernt."),
+       en: "I got to know {the}.", fr: "J’ai fait la connaissance {de le}.",
+       de: "Ich habe {der:acc} kennengelernt."),
     t!("ins.become", "Он хо́чет стать ", ".", Instrumental.being, BOTH, ANIMATE,
-       en: "He wants to become ___.", fr: "Il veut devenir ___.", de: "Er will ___ werden."),
+       en: "He wants to become {a}.", fr: "Il veut devenir {}.", de: "Er will {:nom} werden."),
     t!("ins.under", "Ко́шка спит под ", ".", Instrumental.location, BOTH, INANIMATE,
-       en: "The cat is sleeping under ___.", fr: "Le chat dort sous ___.",
-       de: "Die Katze schläft unter ___."),
+       en: "The cat is sleeping under {the}.", fr: "Le chat dort sous {le}.",
+       de: "Die Katze schläft unter {der:dat}."),
     t!("ins.behind", "Мы стои́м за ", ".", Instrumental.location, BOTH, None,
-       en: "We are standing behind ___.", fr: "Nous sommes derrière ___.",
-       de: "Wir stehen hinter ___."),
+       en: "We are standing behind {the}.", fr: "Nous sommes derrière {le}.",
+       de: "Wir stehen hinter {der:dat}."),
     // prepositional (о becomes об before a vowel: Template::before_for)
     t!("prep.think", "Я ду́маю о ", ".", Prepositional.about, BOTH, None,
-       en: "I am thinking about ___.", fr: "Je pense à ___.", de: "Ich denke an ___."),
+       en: "I am thinking about {the}.", fr: "Je pense {à le}.", de: "Ich denke an {der:acc}."),
     t!("prep.talk", "Мы говори́м о ", ".", Prepositional.about, BOTH, None,
-       en: "We are talking about ___.", fr: "Nous parlons de ___.",
-       de: "Wir sprechen über ___."),
+       en: "We are talking about {the}.", fr: "Nous parlons {de le}.",
+       de: "Wir sprechen über {der:acc}."),
     t!("prep.dream", "Она́ мечта́ет о ", ".", Prepositional.about, BOTH, None,
-       en: "She dreams of ___.", fr: "Elle rêve de ___.", de: "Sie träumt von ___."),
+       en: "She dreams of {a}.", fr: "Elle rêve {de le}.", de: "Sie träumt von {ein:dat}."),
     t!("prep.book", "Э́то кни́га о ", ".", Prepositional.about, BOTH, None,
-       en: "This is a book about ___.", fr: "C’est un livre sur ___.",
-       de: "Das ist ein Buch über ___."),
+       en: "This is a book about {the}.", fr: "C’est un livre sur {le}.",
+       de: "Das ist ein Buch über {der:acc}."),
     t!("prep.forgot", "Я забы́л о ", ".", Prepositional.about, BOTH, None,
-       en: "I forgot about ___.", fr: "J’ai oublié ___.", de: "Ich habe ___ vergessen."),
+       en: "I forgot about {the}.", fr: "J’ai oublié {le}.", de: "Ich habe {der:acc} vergessen."),
 ];
 
 /// The use ids of each case, as in `USES` in `frontend/src/shared/grammar/cases.ts`.
@@ -179,6 +213,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
+    use crate::grammar::Gender;
 
     #[test]
     fn every_case_has_frames() {
@@ -206,8 +241,11 @@ mod tests {
             );
             assert!(t.before.is_empty() || t.before.ends_with(' '), "{}", t.id);
             assert!(t.after.chars().all(|c| !c.is_alphabetic()) || t.after.starts_with(' '));
-            for (_, text) in t.translations {
-                assert_eq!(text.matches("___").count(), 1, "{}: {text}", t.id);
+            for (locale, text) in t.translations {
+                assert_eq!(text.matches('{').count(), 1, "{}: {text}", t.id);
+                assert_eq!(text.matches('}').count(), 1, "{}: {text}", t.id);
+                let (_, slot, _) = t.split(locale).unwrap();
+                assert!(NounSlot::parse(locale, slot).is_some(), "{}: {text}", t.id);
             }
         }
     }
@@ -231,6 +269,56 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn translations_get_the_noun_with_its_article() {
+        let frame = |id: &str| TEMPLATES.iter().find(|t| t.id == id).unwrap();
+        let sentence = |id: &str, noun: &NounForms, number| {
+            let t = frame(id);
+            t.frame(noun.locale)
+                .unwrap()
+                .replace("___", &t.noun_phrase(noun, number).unwrap())
+        };
+        let forms = |locale, singular: &str, plural: &str, gender| NounForms {
+            locale,
+            singular: singular.into(),
+            plural: Some(plural.into()),
+            gender,
+            plural_only: false,
+            oblique: None,
+        };
+        let dog = NounForms::from_meaning(Locale::En, "dog; hound").unwrap();
+        let chien = forms(Locale::Fr, "chien", "chiens", Some(Gender::Masculine));
+        let hund = forms(Locale::De, "Hund", "Hunde", Some(Gender::Masculine));
+        use Number::*;
+        assert_eq!(sentence("dat.call", &dog, Singular), "I called the dog.");
+        assert_eq!(
+            sentence("dat.call", &chien, Singular),
+            "J’ai téléphoné au chien."
+        );
+        assert_eq!(
+            sentence("dat.call", &hund, Singular),
+            "Ich habe den Hund angerufen."
+        );
+        assert_eq!(sentence("dat.help", &hund, Plural), "Ich helfe den Hunden.");
+        assert_eq!(sentence("gen.five", &dog, Plural), "We have five dogs.");
+        assert_eq!(
+            sentence("gen.none", &chien, Singular),
+            "Je n’ai pas de chien."
+        );
+        assert_eq!(
+            sentence("dat.towards", &hund, Singular),
+            "Wir gehen zum Hund."
+        );
+        // At the start of the sentence.
+        assert_eq!(sentence("nom.live", &dog, Plural), "Dogs live here.");
+        assert_eq!(
+            sentence("nom.all", &chien, Plural),
+            "Les chiens sont ici, sans exception."
+        );
+        // No German frame in Russian.
+        assert_eq!(frame("dat.call").frame(Locale::Ru), None);
     }
 
     #[test]

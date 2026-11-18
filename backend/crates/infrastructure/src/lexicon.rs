@@ -62,6 +62,10 @@ pub async fn upsert_lexemes(
         .bind(&all_ids)
         .execute(&mut **tx)
         .await?;
+    sqlx::query("DELETE FROM noun_forms WHERE lexeme_id = ANY($1)")
+        .bind(&all_ids)
+        .execute(&mut **tx)
+        .await?;
 
     let forms: Vec<_> = lexemes
         .iter()
@@ -154,6 +158,50 @@ pub async fn upsert_lexemes(
         translations
             .iter()
             .map(|(_, t)| t.text.clone())
+            .collect::<Vec<_>>(),
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    let nouns: Vec<_> = lexemes
+        .iter()
+        .flat_map(|l| l.noun_forms.iter().map(move |n| (id_of(l), n)))
+        .collect();
+    sqlx::query(
+        "INSERT INTO noun_forms (lexeme_id, locale, singular, plural, gender, plural_only, oblique)
+         SELECT * FROM UNNEST($1::int8[], $2::text[], $3::text[], $4::text[], $5::text[],
+                              $6::bool[], $7::text[])",
+    )
+    .bind(nouns.iter().map(|(id, _)| *id).collect::<Vec<_>>())
+    .bind(
+        nouns
+            .iter()
+            .map(|(_, n)| n.locale.as_str())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        nouns
+            .iter()
+            .map(|(_, n)| n.singular.clone())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        nouns
+            .iter()
+            .map(|(_, n)| n.plural.clone())
+            .collect::<Vec<_>>(),
+    )
+    .bind(
+        nouns
+            .iter()
+            .map(|(_, n)| n.gender.map(|g| g.as_str()))
+            .collect::<Vec<_>>(),
+    )
+    .bind(nouns.iter().map(|(_, n)| n.plural_only).collect::<Vec<_>>())
+    .bind(
+        nouns
+            .iter()
+            .map(|(_, n)| n.oblique.clone())
             .collect::<Vec<_>>(),
     )
     .execute(&mut **tx)

@@ -2,6 +2,7 @@
 
 use crate::grammar::{Animacy, Case, Gender, Locale, Number, PartOfSpeech};
 use crate::inflection::{Split, split_adjective_form, split_noun_form, split_pronoun_form};
+pub use crate::noun_phrase::NounForms;
 use crate::stress;
 
 /// A word with all its forms and translations, identified by where it came from
@@ -20,6 +21,9 @@ pub struct NewLexeme {
     pub frequency_rank: Option<i32>,
     pub forms: Vec<NewForm>,
     pub translations: Vec<NewTranslation>,
+    /// Nouns: the first meaning per language as a noun there (gender, plural),
+    /// for putting it into translated sentences.
+    pub noun_forms: Vec<NounForms>,
 }
 
 /// Which form of a word: case and number, plus gender and animacy for words that

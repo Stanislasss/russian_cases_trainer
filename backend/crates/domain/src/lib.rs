@@ -4,6 +4,7 @@ pub mod game;
 pub mod grammar;
 pub mod inflection;
 pub mod lexicon;
+pub mod noun_phrase;
 pub mod rules;
 pub mod sentences;
 pub mod stress;

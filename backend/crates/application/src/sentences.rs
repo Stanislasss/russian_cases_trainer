@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use domain::game::{AnswerKind, LevelId, LevelSpec};
-use domain::grammar::{Case, Number, PartOfSpeech};
+use domain::grammar::{Case, Locale, Number, PartOfSpeech};
+use domain::noun_phrase::NounForms;
+use domain::rules::Paradigm;
 use domain::sentences::{TEMPLATES, Template};
 use domain::user::UserId;
 use rand::seq::SliceRandom;
@@ -25,6 +27,9 @@ pub struct SentenceItem {
     /// The text before the noun, adapted to it (о → об before a vowel).
     pub before: String,
     pub word: GameItem,
+    /// The noun as it goes into each translation of the frame, article
+    /// included ("the dogs", "au chien", "dem Jungen").
+    pub noun_phrases: Vec<(Locale, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -156,7 +161,17 @@ impl SentenceGame {
                 before: template.before_for(&word.stressed_form),
                 template,
                 word,
+                noun_phrases: Vec::new(),
             });
+        }
+        let ids: Vec<i64> = items.iter().map(|i| i.word.lexeme_id).collect();
+        let forms = if ids.is_empty() {
+            Vec::new()
+        } else {
+            self.exercises.noun_forms(&ids).await?
+        };
+        for item in &mut items {
+            item.noun_phrases = noun_phrases(item.template, &item.word, &forms);
         }
 
         let mut zones: Vec<(Case, Vec<String>)> = zones
@@ -201,6 +216,37 @@ fn pick_templates(count: usize, fit: impl Fn(&Template) -> bool) -> Vec<&'static
                 pool.shuffle(&mut rng);
             }
             pool.pop().expect("the case has fitting frames")
+        })
+        .collect()
+}
+
+/// The noun with its article for each language of the frame: from its forms
+/// in that language, or else from its first meaning there.
+fn noun_phrases(
+    template: &Template,
+    word: &GameItem,
+    forms: &[(i64, NounForms)],
+) -> Vec<(Locale, String)> {
+    // Nouns Russian only has in the plural (но́жницы) translate to words that
+    // already are what they are (scissors, Schere): no plural on top.
+    let number = if word.paradigm == Some(Paradigm::NounPluralOnly) {
+        Number::Singular
+    } else {
+        word.number
+    };
+    template
+        .translations
+        .iter()
+        .filter_map(|&(locale, _)| {
+            let noun = forms
+                .iter()
+                .find(|(id, n)| *id == word.lexeme_id && n.locale == locale)
+                .map(|(_, n)| n.clone())
+                .or_else(|| {
+                    let (_, meaning) = word.translations.iter().find(|(l, _)| *l == locale)?;
+                    NounForms::from_meaning(locale, meaning)
+                })?;
+            Some((locale, template.noun_phrase(&noun, number)?))
         })
         .collect()
 }
@@ -508,6 +554,44 @@ mod tests {
             .await
             .unwrap();
         assert!(batch.items.is_empty());
+    }
+
+    #[test]
+    fn nouns_get_their_article_in_each_language() {
+        let call = TEMPLATES.iter().find(|t| t.id == "dat.call").unwrap();
+        let mut sobaka = word(7, Case::Dative, Some(Animacy::Animate));
+        sobaka.translations = vec![
+            (Locale::En, "dog; hound".into()),
+            (Locale::Fr, "chien".into()),
+            (Locale::De, "Hund".into()),
+        ];
+        let hund = NounForms {
+            locale: Locale::De,
+            singular: "Hund".into(),
+            plural: Some("Hunde".into()),
+            gender: Some(domain::grammar::Gender::Masculine),
+            plural_only: false,
+            oblique: None,
+        };
+        let phrases = noun_phrases(call, &sobaka, &[(7, hund.clone()), (8, hund)]);
+        assert_eq!(
+            phrases,
+            [
+                (Locale::En, "the dog".to_owned()),
+                // No forms in French: the meaning alone, gender unknown.
+                (Locale::Fr, "à chien".to_owned()),
+                (Locale::De, "den Hund".to_owned()),
+            ]
+        );
+
+        // но́жницы: plural in Russian, "scissors" already in English.
+        sobaka.number = Number::Plural;
+        sobaka.paradigm = Some(Paradigm::NounPluralOnly);
+        sobaka.translations = vec![(Locale::En, "scissors".into())];
+        assert_eq!(
+            noun_phrases(call, &sobaka, &[]),
+            [(Locale::En, "the scissors".to_owned())]
+        );
     }
 
     #[tokio::test]

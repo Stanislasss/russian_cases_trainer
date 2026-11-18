@@ -1,15 +1,17 @@
 //! Loads the lexicon into Postgres: nouns, adjectives and pronouns from
 //! OpenRussian.org (CC BY-SA), hand-written pronouns and surnames, French
-//! translations and Russian definitions from Wiktionary (CC BY-SA).
+//! translations and Russian definitions from Wiktionary (CC BY-SA), and the
+//! gender and plural of German and French nouns from the English Wiktionary.
 //! Safe to re-run: words are matched on their source id and updated in place.
 //! With `--sqlite <file>` it writes the desktop app's word list there instead.
 
 mod curated;
 mod declension;
 mod openrussian;
+mod target_nouns;
 mod wiktionary;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
@@ -35,6 +37,10 @@ struct Cli {
     /// Skip the Russian Wiktionary (a 1.7 GB download); Russian then falls back to English.
     #[arg(long)]
     no_russian: bool,
+    /// Skip the German and French noun lists (300 + 160 MB) that give translated
+    /// sentences their articles and plurals; they then do without.
+    #[arg(long)]
+    no_noun_grammar: bool,
     #[arg(long, default_value_t = 2000)]
     batch_size: usize,
 }
@@ -97,6 +103,34 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    target_nouns::add_noun_forms(&mut lexemes);
+    for source in [&target_nouns::GERMAN, &target_nouns::FRENCH] {
+        let locale = source.locale.as_str();
+        if cli.no_noun_grammar {
+            tracing::info!(locale, "skipping the noun list");
+            continue;
+        }
+        let wanted = target_nouns::wanted(&lexemes, source.locale);
+        match load_nouns(source, &cli.data_dir, wanted).await {
+            Ok(nouns) => {
+                let found = nouns.apply(&mut lexemes);
+                tracing::info!(locale, entries = nouns.len(), found, "noun list");
+            }
+            Err(e) => {
+                tracing::warn!(locale, error = %e, "no noun list; sentences go without articles")
+            }
+        }
+    }
+    for (locale, nouns, gendered, plurals) in target_nouns::coverage(&lexemes) {
+        tracing::info!(
+            locale,
+            nouns,
+            gendered,
+            plurals,
+            "nouns for translated sentences"
+        );
+    }
+
     log_summary(&lexemes);
     if let Some(path) = &cli.sqlite {
         let words = infrastructure::sqlite::lexicon::write_lexicon(path, &lexemes)
@@ -136,6 +170,23 @@ async fn load_wiktionary(
         Ok(wiktionary::Dictionary::parse(
             edition,
             std::io::BufReader::new(file),
+        )?)
+    })
+    .await?
+}
+
+async fn load_nouns(
+    source: &'static target_nouns::Source,
+    data_dir: &Path,
+    wanted: HashSet<String>,
+) -> anyhow::Result<target_nouns::Nouns> {
+    let path = download(source.url, &data_dir.join(source.cache_file)).await?;
+    tokio::task::spawn_blocking(move || {
+        let file = std::fs::File::open(&path)?;
+        Ok(target_nouns::Nouns::parse(
+            source,
+            std::io::BufReader::new(file),
+            &wanted,
         )?)
     })
     .await?

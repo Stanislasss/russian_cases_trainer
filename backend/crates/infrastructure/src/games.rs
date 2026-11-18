@@ -7,6 +7,7 @@ use application::ports::{BoxError, RepoError};
 use async_trait::async_trait;
 use domain::game::AnswerKind;
 use domain::grammar::{Animacy, Gender, Locale};
+use domain::noun_phrase::NounForms;
 use domain::rules::paradigm;
 use domain::user::UserId;
 use sqlx::{AssertSqlSafe, PgPool};
@@ -137,6 +138,39 @@ impl ItemRow {
             accepted: self.accepted,
             stressed_form: self.stressed_form,
         })
+    }
+}
+
+/// One noun_forms row, the same for Postgres and SQLite.
+#[derive(sqlx::FromRow)]
+pub(crate) struct NounFormsRow {
+    lexeme_id: i64,
+    locale: String,
+    singular: String,
+    plural: Option<String>,
+    gender: Option<String>,
+    plural_only: bool,
+    oblique: Option<String>,
+}
+
+impl NounFormsRow {
+    pub(crate) fn into_forms(self) -> Result<(i64, NounForms), RepoError> {
+        Ok((
+            self.lexeme_id,
+            NounForms {
+                locale: self.locale.parse().map_err(invalid)?,
+                singular: self.singular,
+                plural: self.plural,
+                gender: self
+                    .gender
+                    .as_deref()
+                    .map(str::parse::<Gender>)
+                    .transpose()
+                    .map_err(invalid)?,
+                plural_only: self.plural_only,
+                oblique: self.oblique,
+            },
+        ))
     }
 }
 
@@ -299,6 +333,18 @@ impl ExerciseRepository for PgExerciseRepository {
                 .into_item()
             })
             .collect()
+    }
+
+    async fn noun_forms(&self, lexeme_ids: &[i64]) -> Result<Vec<(i64, NounForms)>, RepoError> {
+        let rows: Vec<NounFormsRow> = sqlx::query_as(
+            "SELECT lexeme_id, locale, singular, plural, gender, plural_only, oblique
+               FROM noun_forms WHERE lexeme_id = ANY($1)",
+        )
+        .bind(lexeme_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(other)?;
+        rows.into_iter().map(NounFormsRow::into_forms).collect()
     }
 }
 

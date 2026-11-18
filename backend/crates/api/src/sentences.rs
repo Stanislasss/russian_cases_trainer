@@ -75,6 +75,10 @@ pub struct SentenceItem {
     reason: String,
     /// The sentence in en/fr/de, with ___ for the noun; no Russian.
     translations: Translations,
+    /// What goes in place of ___ in each translation: the noun with its article
+    /// and in the right form ("the dogs", "au chien", "dem Jungen"). Missing
+    /// where the noun has no meaning in that language.
+    noun_phrases: Translations,
     /// The noun, its answer and everything needed to explain a wrong ending.
     word: EndingsItem,
 }
@@ -91,9 +95,10 @@ impl From<Item> for SentenceItem {
             translations: t
                 .translations
                 .iter()
-                .map(|(locale, text)| (*locale, (*text).to_owned()))
+                .filter_map(|(locale, _)| Some((*locale, t.frame(*locale)?)))
                 .collect::<Vec<_>>()
                 .into(),
+            noun_phrases: item.noun_phrases.into(),
             word: item.word.into(),
         }
     }

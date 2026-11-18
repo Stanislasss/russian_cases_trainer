@@ -7,7 +7,7 @@ use application::game::{
 };
 use domain::game::LevelId;
 use domain::grammar::{Animacy, Case, Gender, Locale, Number, PartOfSpeech};
-use domain::lexicon::{NewForm, NewLexeme, NewTranslation, Slot};
+use domain::lexicon::{NewForm, NewLexeme, NewTranslation, NounForms, Slot};
 use domain::user::UserId;
 
 /// A fresh database holding `words`, seen through its exercise repository.
@@ -35,6 +35,7 @@ macro_rules! contract_tests {
             rare_endings_get_no_zone,
             items_carry_answers_variants_and_translations,
             items_show_up_to_three_meanings_per_language,
+            nouns_come_with_their_forms_in_other_languages,
             adjective_items_say_which_form_is_asked,
             a_batch_asks_each_word_once,
             the_dictionary_form_is_never_asked,
@@ -67,6 +68,7 @@ pub fn lexeme(lemma: &str, pos: PartOfSpeech, rank: i32, indeclinable: bool) -> 
         frequency_rank: Some(rank),
         forms: Vec::new(),
         translations: Vec::new(),
+        noun_forms: Vec::new(),
     }
 }
 
@@ -258,6 +260,36 @@ pub async fn items_show_up_to_three_meanings_per_language(db: impl Seed) {
         items[0].translations,
         [(Locale::En, "hand; arm; handwriting".to_owned())]
     );
+}
+
+pub async fn nouns_come_with_their_forms_in_other_languages(db: impl Seed) {
+    let buch = NounForms {
+        locale: Locale::De,
+        singular: "Buch".into(),
+        plural: Some("Bücher".into()),
+        gender: Some(Gender::Neuter),
+        plural_only: false,
+        oblique: None,
+    };
+    let livre = NounForms {
+        locale: Locale::Fr,
+        singular: "livre".into(),
+        plural: None,
+        gender: None,
+        plural_only: true,
+        oblique: Some("x".into()),
+    };
+    let mut words = nouns();
+    words[0].noun_forms = vec![buch.clone(), livre.clone()];
+    let repo = db.seed(&words).await;
+
+    let basic = filter(&[LevelId::BasicNouns], Case::Instrumental);
+    let items = repo.random_items(&basic, &["ой".into()], 10).await.unwrap();
+    let kniga = items[0].lexeme_id;
+    let mut forms = repo.noun_forms(&[kniga, kniga + 1_000_000]).await.unwrap();
+    forms.sort_by_key(|(_, n)| n.locale.as_str());
+    assert_eq!(forms, [(kniga, buch), (kniga, livre)]);
+    assert!(repo.noun_forms(&[]).await.unwrap().is_empty());
 }
 
 pub async fn adjective_items_say_which_form_is_asked(db: impl Seed) {

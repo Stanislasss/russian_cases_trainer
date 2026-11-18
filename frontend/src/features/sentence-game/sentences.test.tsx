@@ -11,6 +11,7 @@ const kniga: SentenceItem = {
   case: 'prepositional',
   reason: 'about',
   translations: { en: 'I am thinking about ___.' },
+  noun_phrases: { en: 'the book' },
   word: {
     lexeme_id: 1,
     stressed_lemma: 'кни́га',
@@ -31,6 +32,7 @@ const stol: SentenceItem = {
   case: 'genitive',
   reason: 'absence',
   translations: { en: 'I have no ___.' },
+  noun_phrases: {},
   word: {
     lexeme_id: 2,
     stressed_lemma: 'стол',
@@ -85,7 +87,7 @@ test('only noun levels are offered, basic by default', async () => {
 test('the sentence shows the noun and the translation with its meaning', async () => {
   await startRound()
   expect(screen.getByText('Я ду́маю о', { exact: false })).toBeInTheDocument()
-  expect(screen.getByText('book')).toBeInTheDocument() // first meaning only
+  expect(screen.getByText('the book')).toBeInTheDocument() // with its article
   expect(screen.getByText('Which case?')).toBeInTheDocument()
 })
 
@@ -194,10 +196,10 @@ test('with one case, or endings only, the case is not asked', async () => {
 
 test('a hidden translation shows once the sentence is answered', async () => {
   await startRound({ levels: ['basic_nouns'], hideTranslation: true })
-  expect(screen.queryByText('book')).not.toBeInTheDocument()
+  expect(screen.queryByText('the book')).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /^Prepositional/ }))
   fireEvent.click(await screen.findByRole('button', { name: '-е' }))
-  expect(await screen.findByText('book')).toBeInTheDocument()
+  expect(await screen.findByText('the book')).toBeInTheDocument()
 })
 
 test('the nominative needs the plural', async () => {

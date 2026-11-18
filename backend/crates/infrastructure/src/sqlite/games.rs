@@ -7,10 +7,11 @@ use application::game::{
 use application::ports::{BoxError, RepoError};
 use async_trait::async_trait;
 use domain::game::AnswerKind;
+use domain::noun_phrase::NounForms;
 use domain::user::UserId;
 use sqlx::{AssertSqlSafe, SqlitePool};
 
-use crate::games::{ItemRow, level_rows};
+use crate::games::{ItemRow, NounFormsRow, level_rows};
 
 /// Askable forms for a filter, as the CTE `eligible(lexeme_id, number, gender,
 /// animacy, answer, rank)`. Binds: ?1 levels as JSON [[pos, max_rank, number], …],
@@ -207,6 +208,18 @@ impl ExerciseRepository for SqliteExerciseRepository {
             })
             .collect()
     }
+
+    async fn noun_forms(&self, lexeme_ids: &[i64]) -> Result<Vec<(i64, NounForms)>, RepoError> {
+        let rows: Vec<NounFormsRow> = sqlx::query_as(
+            "SELECT lexeme_id, locale, singular, plural, gender, plural_only, oblique
+               FROM noun_forms WHERE lexeme_id IN (SELECT value FROM json_each(?1))",
+        )
+        .bind(serde_json::to_string(lexeme_ids).expect("plain data"))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(other)?;
+        rows.into_iter().map(NounFormsRow::into_forms).collect()
+    }
 }
 
 /// Attempts of the desktop app's one local user.
@@ -302,6 +315,10 @@ mod tests {
             count: usize,
         ) -> Result<Vec<GameItem>, RepoError> {
             self.0.random_items(filter, zones, count).await
+        }
+
+        async fn noun_forms(&self, lexeme_ids: &[i64]) -> Result<Vec<(i64, NounForms)>, RepoError> {
+            self.0.noun_forms(lexeme_ids).await
         }
     }
 

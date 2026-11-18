@@ -169,6 +169,7 @@ impl Basics {
                 (Locale::En, row.cell(self.translations_en)),
                 (Locale::De, row.cell(self.translations_de)),
             ]),
+            noun_forms: Vec::new(),
         }
     }
 }

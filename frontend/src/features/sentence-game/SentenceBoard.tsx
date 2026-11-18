@@ -191,8 +191,12 @@ function Sentence({
   speak?: (text: string) => void
 }) {
   const { t, i18n } = useTranslation()
-  // The first meaning only: the dictionaries list several ("position, location, …").
-  const meaning = translationFor(item.word, i18n.resolvedLanguage)?.split(/[;,]/)[0].trim()
+  const language = i18n.resolvedLanguage
+  const phrases: Partial<Record<string, string | null>> = item.noun_phrases
+  // The noun with its article ("au chien"); else the first meaning alone, as the
+  // dictionaries list several ("position, location, …").
+  const meaning =
+    (language && phrases[language]) || translationFor(item.word, language)?.split(/[;,]/)[0].trim()
   const translations: Partial<Record<string, string | null>> = item.translations
   const sentenceTranslation =
     i18n.resolvedLanguage && (done || !hideTranslation) ? translations[i18n.resolvedLanguage] : null

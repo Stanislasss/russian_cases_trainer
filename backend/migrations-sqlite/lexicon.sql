@@ -44,3 +44,16 @@ CREATE TABLE translations (
     text      TEXT NOT NULL,
     PRIMARY KEY (lexeme_id, locale, position)
 ) WITHOUT ROWID;
+
+-- Nouns: the first meaning per language as a noun there (gender, plural), for
+-- translated sentences ("au chien", "den Hunden"). Unknown parts are NULL.
+CREATE TABLE noun_forms (
+    lexeme_id   INTEGER NOT NULL REFERENCES lexemes (id),
+    locale      TEXT NOT NULL,
+    singular    TEXT NOT NULL,
+    plural      TEXT,              -- the whole phrase in the plural
+    gender      TEXT,
+    plural_only INTEGER NOT NULL,
+    oblique     TEXT,              -- German weak nouns: den/dem Jungen
+    PRIMARY KEY (lexeme_id, locale)
+) WITHOUT ROWID;
