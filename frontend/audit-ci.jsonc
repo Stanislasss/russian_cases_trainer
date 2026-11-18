@@ -1,0 +1,14 @@
+// `npm audit` as CI runs it (through audit-ci, for the allowlist). Advisories
+// allowed here don't affect this app; each says why and when to drop it.
+// Anything new at high or critical still fails the build.
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "high": true,
+  "allowlist": [
+    // picomatch ReDoS on repeated extglobs. Every version is affected and no
+    // fix exists yet; it only comes in through vite, tinyglobby and vitest (dev
+    // tools, never shipped), which match it against our own config globs.
+    // Drop once picomatch publishes a fixed version.
+    "GHSA-fc5q-39xc-vjpf"
+  ]
+}
