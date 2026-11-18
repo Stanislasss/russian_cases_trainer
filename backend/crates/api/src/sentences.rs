@@ -79,6 +79,10 @@ pub struct SentenceItem {
     /// and in the right form ("the dogs", "au chien", "dem Jungen"). Missing
     /// where the noun has no meaning in that language.
     noun_phrases: Translations,
+    /// The noun as shown before it's answered, stress-marked: the nominative
+    /// plural when the plural is asked (ко́мнаты), else (and in nominative
+    /// frames, where that's the answer) the dictionary form.
+    shown: String,
     /// The noun, its answer and everything needed to explain a wrong ending.
     word: EndingsItem,
 }
@@ -99,6 +103,7 @@ impl From<Item> for SentenceItem {
                 .collect::<Vec<_>>()
                 .into(),
             noun_phrases: item.noun_phrases.into(),
+            shown: item.shown,
             word: item.word.into(),
         }
     }

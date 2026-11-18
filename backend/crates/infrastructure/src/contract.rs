@@ -36,6 +36,7 @@ macro_rules! contract_tests {
             items_carry_answers_variants_and_translations,
             items_show_up_to_three_meanings_per_language,
             nouns_come_with_their_forms_in_other_languages,
+            nouns_come_with_their_nominative_plural,
             adjective_items_say_which_form_is_asked,
             a_batch_asks_each_word_once,
             the_dictionary_form_is_never_asked,
@@ -259,6 +260,67 @@ pub async fn items_show_up_to_three_meanings_per_language(db: impl Seed) {
     assert_eq!(
         items[0].translations,
         [(Locale::En, "hand; arm; handwriting".to_owned())]
+    );
+}
+
+pub async fn nouns_come_with_their_nominative_plural(db: impl Seed) {
+    use Number::*;
+    let slot = |case, number| Slot::new(case, number);
+    let komnata = NewLexeme {
+        forms: vec![
+            NewForm::noun(
+                "комната",
+                "ко\u{301}мнатой",
+                slot(Case::Instrumental, Singular),
+                0,
+                false,
+            ),
+            NewForm::noun(
+                "комната",
+                "ко\u{301}мнаты",
+                slot(Case::Nominative, Plural),
+                0,
+                false,
+            ),
+            NewForm::noun(
+                "комната",
+                "ко\u{301}мнатами",
+                slot(Case::Instrumental, Plural),
+                0,
+                false,
+            ),
+        ],
+        ..lexeme("комната", PartOfSpeech::Noun, 1, false)
+    };
+    // Singular only: no plural to show.
+    let moloko = NewLexeme {
+        forms: vec![NewForm::noun(
+            "молоко",
+            "молоко\u{301}м",
+            slot(Case::Instrumental, Singular),
+            0,
+            false,
+        )],
+        ..lexeme("молоко", PartOfSpeech::Noun, 2, false)
+    };
+    let repo = db.seed(&[komnata, moloko]).await;
+
+    let basic = filter(&[LevelId::BasicNouns], Case::Instrumental);
+    let items = repo
+        .random_items(&basic, &["ой".into(), "ом".into()], 10)
+        .await
+        .unwrap();
+    let id = |lemma: &str| {
+        items
+            .iter()
+            .find(|i| i.stressed_lemma == lemma)
+            .unwrap()
+            .lexeme_id
+    };
+    let (komnata, moloko) = (id("комната"), id("молоко"));
+    assert_eq!(
+        repo.nominative_plurals(&[komnata, moloko]).await.unwrap(),
+        [(komnata, "ко\u{301}мнаты".to_owned())]
     );
 }
 

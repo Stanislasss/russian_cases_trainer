@@ -346,6 +346,21 @@ impl ExerciseRepository for PgExerciseRepository {
         .map_err(other)?;
         rows.into_iter().map(NounFormsRow::into_forms).collect()
     }
+
+    async fn nominative_plurals(
+        &self,
+        lexeme_ids: &[i64],
+    ) -> Result<Vec<(i64, String)>, RepoError> {
+        sqlx::query_as(
+            "SELECT lexeme_id, coalesce(stressed_form, form) FROM forms
+              WHERE lexeme_id = ANY($1) AND grammatical_case = 'nominative'
+                AND number = 'plural' AND variant = 0",
+        )
+        .bind(lexeme_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(other)
+    }
 }
 
 #[derive(Clone)]

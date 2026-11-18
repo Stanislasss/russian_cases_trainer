@@ -220,6 +220,21 @@ impl ExerciseRepository for SqliteExerciseRepository {
         .map_err(other)?;
         rows.into_iter().map(NounFormsRow::into_forms).collect()
     }
+
+    async fn nominative_plurals(
+        &self,
+        lexeme_ids: &[i64],
+    ) -> Result<Vec<(i64, String)>, RepoError> {
+        sqlx::query_as(
+            "SELECT lexeme_id, coalesce(stressed_form, form) FROM forms
+              WHERE lexeme_id IN (SELECT value FROM json_each(?1))
+                AND grammatical_case = 'nominative' AND number = 'plural' AND variant = 0",
+        )
+        .bind(serde_json::to_string(lexeme_ids).expect("plain data"))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(other)
+    }
 }
 
 /// Attempts of the desktop app's one local user.
@@ -319,6 +334,13 @@ mod tests {
 
         async fn noun_forms(&self, lexeme_ids: &[i64]) -> Result<Vec<(i64, NounForms)>, RepoError> {
             self.0.noun_forms(lexeme_ids).await
+        }
+
+        async fn nominative_plurals(
+            &self,
+            lexeme_ids: &[i64],
+        ) -> Result<Vec<(i64, String)>, RepoError> {
+            self.0.nominative_plurals(lexeme_ids).await
         }
     }
 

@@ -110,6 +110,16 @@ pub trait ExerciseRepository: Send + Sync {
     async fn noun_forms(&self, _lexeme_ids: &[i64]) -> Result<Vec<(i64, NounForms)>, RepoError> {
         Ok(Vec::new())
     }
+
+    /// The nouns' nominative plurals (main form, stress-marked), to show the
+    /// word in the plural when the plural is asked; words without one are left
+    /// out. By default none: the dictionary form is shown instead.
+    async fn nominative_plurals(
+        &self,
+        _lexeme_ids: &[i64],
+    ) -> Result<Vec<(i64, String)>, RepoError> {
+        Ok(Vec::new())
+    }
 }
 
 #[async_trait]

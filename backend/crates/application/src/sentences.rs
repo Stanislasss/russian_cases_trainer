@@ -27,6 +27,11 @@ pub struct SentenceItem {
     /// The text before the noun, adapted to it (о → об before a vowel).
     pub before: String,
     pub word: GameItem,
+    /// The noun as shown before it's answered, stress-marked: the nominative
+    /// plural when the plural is asked (ко́мнаты), so only the case is left to
+    /// find; else, and in nominative frames (where that's the answer), the
+    /// dictionary form.
+    pub shown: String,
     /// The noun as it goes into each translation of the frame, article
     /// included ("the dogs", "au chien", "dem Jungen").
     pub noun_phrases: Vec<(Locale, String)>,
@@ -160,6 +165,7 @@ impl SentenceGame {
             items.push(SentenceItem {
                 before: template.before_for(&word.stressed_form),
                 template,
+                shown: word.stressed_lemma.clone(),
                 word,
                 noun_phrases: Vec::new(),
             });
@@ -170,8 +176,23 @@ impl SentenceGame {
         } else {
             self.exercises.noun_forms(&ids).await?
         };
+        let plural_ids: Vec<i64> = items
+            .iter()
+            .filter(|i| shows_the_plural(i.template, &i.word))
+            .map(|i| i.word.lexeme_id)
+            .collect();
+        let plurals = if plural_ids.is_empty() {
+            Vec::new()
+        } else {
+            self.exercises.nominative_plurals(&plural_ids).await?
+        };
         for item in &mut items {
             item.noun_phrases = noun_phrases(item.template, &item.word, &forms);
+            if shows_the_plural(item.template, &item.word)
+                && let Some((_, plural)) = plurals.iter().find(|(id, _)| *id == item.word.lexeme_id)
+            {
+                item.shown = plural.clone();
+            }
         }
 
         let mut zones: Vec<(Case, Vec<String>)> = zones
@@ -218,6 +239,13 @@ fn pick_templates(count: usize, fit: impl Fn(&Template) -> bool) -> Vec<&'static
             pool.pop().expect("the case has fitting frames")
         })
         .collect()
+}
+
+/// Whether the word is shown in the nominative plural rather than its
+/// dictionary form: when the plural is asked, except in nominative frames,
+/// where the nominative plural is the answer.
+fn shows_the_plural(template: &Template, word: &GameItem) -> bool {
+    word.number == Number::Plural && template.case != Case::Nominative
 }
 
 /// The noun with its article for each language of the frame: from its forms
@@ -554,6 +582,77 @@ mod tests {
             .await
             .unwrap();
         assert!(batch.items.is_empty());
+    }
+
+    /// Plural forms for the words of one test: "<id>-pl".
+    struct Plurals(FakeWords);
+
+    #[async_trait]
+    impl ExerciseRepository for Plurals {
+        async fn zones(&self, f: &GameFilter, s: f64, m: usize) -> Result<Vec<String>, RepoError> {
+            self.0.zones(f, s, m).await
+        }
+
+        async fn random_items(
+            &self,
+            filter: &GameFilter,
+            zones: &[String],
+            count: usize,
+        ) -> Result<Vec<GameItem>, RepoError> {
+            let mut items = self.0.random_items(filter, zones, count).await?;
+            // Plural levels only here: the words come in the plural.
+            for item in &mut items {
+                item.number = Number::Plural;
+            }
+            Ok(items)
+        }
+
+        async fn nominative_plurals(&self, ids: &[i64]) -> Result<Vec<(i64, String)>, RepoError> {
+            Ok(ids.iter().map(|id| (*id, format!("{id}-pl"))).collect())
+        }
+    }
+
+    #[tokio::test]
+    async fn plural_words_are_shown_in_the_plural_except_in_nominative_frames() {
+        let game = SentenceGame::new(
+            Arc::new(Plurals(FakeWords::default())),
+            Arc::new(NoAttempts),
+            Arc::new(FakePreferences::default()),
+        );
+        let batch = game
+            .new_batch(
+                &[LevelId::IntermediateNouns],
+                &[Case::Nominative, Case::Genitive],
+                Some(&[Number::Plural]),
+                10,
+                None,
+            )
+            .await
+            .unwrap();
+        assert!(
+            batch
+                .items
+                .iter()
+                .any(|i| i.template.case == Case::Nominative)
+        );
+        for item in &batch.items {
+            let plural = format!("{}-pl", item.word.lexeme_id);
+            if item.template.case == Case::Nominative {
+                assert_eq!(item.shown, item.word.stressed_lemma, "{}", item.template.id);
+            } else {
+                assert_eq!(item.shown, plural, "{}", item.template.id);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn singular_words_show_their_dictionary_form() {
+        let (game, _) = game(FakeWords::default());
+        let batch = game
+            .new_batch(&[LevelId::BasicNouns], Case::ALL, None, 6, None)
+            .await
+            .unwrap();
+        assert!(batch.items.iter().all(|i| i.shown == i.word.stressed_lemma));
     }
 
     #[test]
